@@ -27,8 +27,8 @@ data = p1.run_cea()
 # let's iterate over pressures!
 p1 = Rocket_Problem(phi=1, materials=[methane, o2, n2], filename="problem1", massf=True)
 
-collector = Data_Collector("cstar", "isp", "gamma", "c_t", "rho", chamber_keys=["H2O"]) # one 
-collector = Data_Collector("cstar", "isp", "gamma", "c_t", "rho", exit_keys=["H2O"]) # or the other
+collector = Data_Collector("cstar", "isp", "gamma", "c_t", "rho", chamber_keys=["H2O"]) # one of chamber_keys or exit_keys, not both
+collector = Data_Collector(exit_keys=["H2O"]) # or the other
 pressures = np.linspace(14, 10000)
 for pressure in pressures:
   print("Running Pressure:", pressure)

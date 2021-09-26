@@ -1,7 +1,14 @@
-# Fuck it, I'll do it myself
-import subprocess, re
+import subprocess, re, os.path, shutil
+import importlib.resources
 
-CEA_LOCATION = "FCEA2"
+with importlib.resources.path(__name__, "FCEA2.exe") as manager:
+  CEA_LOCATION = str(manager)
+
+for file in ["thermo.lib", "trans.lib"]:
+  if not os.path.isfile(file):
+    print(file+" not found in current directory. Copying from package...")
+    with importlib.resources.path(__name__, "FCEA2.exe") as manager:
+      shutil.copyfile(manager, file)
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES
@@ -524,16 +531,13 @@ class Rocket_Problem(Problem):
     return out
 
 class Data_Collector(Output):
-  def __init__(self, *args, keys=[], chamber_keys=[], exit_keys=[], numpy=False):
+  def __init__(self, *args, keys=[], chamber_keys=[], exit_keys=[]):
     if len(args) > 0:
       if keys:
         raise TypeError("Data_Collector should not receive both a list of arguments and the 'keys' keyword")
       keys = list(args)
-    if numpy:
-      import numpy as np # Don't want a hard dependency on this for everyone
-      #### OK THIS IS DUMB, frickin np arrays will not ever modify in place, so would have to do some stupid bs to have a function for it
-    self._prototype=np.array if numpy else list
-    self._add_element=np.append if numpy else list.append
+    self._prototype = list
+    self._add_element = list.append
     self._keys = keys
     self._chamber_keys = chamber_keys
     self._exit_keys = exit_keys

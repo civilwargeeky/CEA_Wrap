@@ -1,1 +1,7 @@
+*.inp
+*.out
+*.plt
 *.rtf
+*.pyc
+!thermo_spg.inp
+!thermo_spg.out

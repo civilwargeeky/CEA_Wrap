@@ -1,6 +1,17 @@
 # CEA_Wrap
 A Python-Based wrapper for the NASA CEA Thermochemical Code
 
+# Installation Instructions
+Click on "releases" on the right side of the main page and download the .zip file.
+
+In your command prompt type ```pip install [the zip file's name].zip``` e.g. ```pip install CEA_Wrap_1.0.zip```
+
+You can now import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
+
+# Examples
+You can view the "very_simple_example.py" file in this repository for examples on use.
+
+# Documentation
 ## Specifying Materials
   In order to run problems, you must create materials. Materials must be either Fuel or Oxidizer (F or O) objects
   

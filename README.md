@@ -48,7 +48,7 @@ You can view the "very_simple_example.py" file in this repository for examples o
   * pressure_units can be specified later with .set_pressure_units
 * inserts: default None, a list of CEA names for species which should be forced into the product considerations
   * Tip: If you are doing calculations with Aluminum, I recommend using inserts=["AL2O3(L)", "AL2O3(a)"]
-omits: default None, a list of CEA names for species which should be specifically ignored in the product considerations
+* omits: default None, a list of CEA names for species which should be specifically ignored in the product considerations
 * **NOTE:** You must specify one of the following reactant ratio schemes. Either during initialization with x=1.0 or later with problem.set_x(1.0) where x is p_f, o_f, etc.
 #### Specifying reactant ratios:
    Key  | CEA Key | Description

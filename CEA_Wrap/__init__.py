@@ -7,7 +7,7 @@ with importlib.resources.path(__name__, "FCEA2.exe") as manager:
 for file in ["thermo.lib", "trans.lib"]:
   if not os.path.isfile(file):
     print(file+" not found in current directory. Copying from package...")
-    with importlib.resources.path(__name__, "FCEA2.exe") as manager:
+    with importlib.resources.path(__name__, file) as manager:
       shutil.copyfile(manager, file)
 
 class Material:

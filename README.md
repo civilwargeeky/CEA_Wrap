@@ -74,7 +74,7 @@ Well no more! Just call this function and we calculate the correct o_f ratio for
 ## Rocket Problem Constructor Additional Parameters:
 * ae_at: default 1, exit/throat area ratio
   * ae_at can be specified later with .set_ae_at
-* analysis_type: default "equilibrium", whether to use equilibrium reactions or frozen. If you want to use frozen go find the correct value for this in the CEA manual. I don't guarantee other values work correctly.
+* analysis_type: default "equilibrium", whether to use equilibrium reactions or frozen. For using frozen specify "frozen" or "frozen nfz=1" for frozen at the chamber or "frozen nfz=2" for frozen at the throat
 
 ## Available Output Dictionary Keys:
 All output objects are "Output" objects, which are similar to dictionaries, but can also be accessed with dot notation.
@@ -121,9 +121,10 @@ In addition, all product dictionaries are also "Output"s so to get H2O compositi
 * phi - weight-based equivalence ratio of oxidizer/fuel
 ### Rocket:
 * **NOTE : Properties are by default at exit. Chamber parameters are prefixed "c_" and throat properties "t_"**
+* **NOTE : Properties not defined for frozen flow are marked with an asterisk (*)**
 * prod_c - dictionary of chamber products, in mole or mass fractions (as specified in problem)
-* prod_t - dictionary of throat products, in mole or mass fractions (as specified in problem)
-* prod_e - dictionary of exit products, in mole or mass fractions (as specified in problem)
+* \*prod_t - dictionary of throat products, in mole or mass fractions (as specified in problem)
+* \*prod_e - dictionary of exit products, in mole or mass fractions (as specified in problem)
 * p - pressure, bar
   * t_p - throat
   * c_p - chamber
@@ -154,22 +155,22 @@ In addition, all product dictionaries are also "Output"s so to get H2O compositi
 * gammas - isentropic ratio of specific heats
   * t_gammas - throat
   * c_gammas - chamber
-* gamma - "real" ratio of specific heats (multiplied by -(dLV/dLP)t)
+* gamma - "real" ratio of specific heats (multiplied by -(dLV/dLP)t) (same as gammas for frozen flow)
   * t_gamma - throat
   * c_gamma - chamber
-* isp - ideal isp (ambient pressure = exit pressure), s
-  * t_isp - throat
-* ivac - vacuum isp, s
-  * t_ivac - throat
-* cf - ideally expanded thrust coefficient
-  * t_cf - throat
-* dLV_dLP_t - (dLV/dLP)t, multiply gam by negative this to convert isentropic gamma to real gamma
-  * t_dLV_dLP_t - throat
-  * c_dLV_dLP_t - chamber
-* dLV_dLT_p - (dLV/dLT)p
-  * t_dLV_dLT_p - throat
-  * c_dLV_dLT_p - chamber
+* \*isp - ideal isp (ambient pressure = exit pressure), s
+  * \*t_isp - throat
+* \*ivac - vacuum isp, s
+  * \*t_ivac - throat
+* \*cf - ideally expanded thrust coefficient
+  * \*t_cf - throat
+* \*dLV_dLP_t - (dLV/dLP)t, multiply gammas by negative this to convert isentropic gamma to real gamma
+  * \*t_dLV_dLP_t - throat
+  * \*c_dLV_dLP_t - chamber
+* \*dLV_dLT_p - (dLV/dLT)p
+  * \*t_dLV_dLT_p - throat
+  * \*c_dLV_dLT_p - chamber
 * cstar - characteristic velocity in chamber, m/s
-* mach - mach number at exhaust
+* \*mach - mach number at exhaust
 * o_f - oxidizer/fuel weight ratio
 * phi - weight-based equivalence ratio of oxidizer/fuel

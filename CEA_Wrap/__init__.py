@@ -381,8 +381,12 @@ class Rocket_Problem(Problem):
   def __init__(self, *args, ae_at=1, analysis_type="equilibrium", **kwargs):
     super().__init__(*args, **kwargs)
 
+    analysis_type = analysis_type.lower() # ensure case because we check for frozen by literal
     self.ae_at = ae_at
     self.analysis_type = analysis_type # equilibrium or frozen
+    
+    if "equilibrium" in analysis_type and "frozen" in analysis_type:
+      raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
   
   
   def set_ae_at(self, ae_at): self.ae_at = ae_at
@@ -416,10 +420,11 @@ class Rocket_Problem(Problem):
           out.c_gammas = float(new_line[7])
           out.c_rho = float(new_line[10])
           out.c_son = float(new_line[11])
+          out.c_h = float(new_line[14])
         elif counter == 2: # throat properties
           # Throat/Nozzle Values
           out.t_isp = float(new_line[2])/9.81
-          out.t_ispv = float(new_line[3])/9.81
+          out.t_ivac = float(new_line[3])/9.81
           out.t_cf = float(new_line[9])
           
           # Section Properties  
@@ -431,13 +436,14 @@ class Rocket_Problem(Problem):
           out.t_gammas = float(new_line[7])
           out.t_rho = float(new_line[10])
           out.t_son = float(new_line[11])
+          out.t_h = float(new_line[14])
         elif counter == 3: # noz properties
           # Exit-only values
           out.mach = float(new_line[12])
           
           # Throat/Nozzle Values
           out.isp = float(new_line[2])/9.81
-          out.ispv = float(new_line[3])/9.81
+          out.ivac = float(new_line[3])/9.81
           out.cf = float(new_line[9])
           
           # Section Properties  
@@ -449,6 +455,7 @@ class Rocket_Problem(Problem):
           out.gammas = float(new_line[7])
           out.rho = float(new_line[10])
           out.son = float(new_line[11])
+          out.h = float(new_line[14])
           
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
     with open(self.filename+".out") as file:
@@ -479,7 +486,7 @@ class Rocket_Problem(Problem):
       
         if search_terms[search_i] in line:
           in_search_area = True
-        elif in_search_area and not passed_first_line:
+        elif in_search_area and not passed_first_line: # After every section title is a blank line
           passed_first_line = True # Skip this iteration because its a blank line
         elif in_search_area and passed_first_line:
           # Lines should start with the first non-blank line
@@ -490,21 +497,29 @@ class Rocket_Problem(Problem):
               in_search_area = False
               continue
             split = re.findall("\S+", line) # match by sections which are not whitespace
-            key = split[0].lstrip("*") # remove any asterisks
-            out.prod_c[key] = float(split[1])
-            out.prod_t[key] = float(split[2])
-            out.prod_e[key] = float(split[3])
+            # So apparently in frozen calculations, the products come in multiple columns and only chamber
+            if "frozen" in self.analysis_type:
+              # Split them into pairs 2-by-2
+              kv_pairs = [(split[i], split[i+1]) for i in range(0, len(split), 2)]
+              for key, value in kv_pairs:
+                key = key.lstrip("*") # remove any asterisks
+                out.prod_c[key] = float(value)
+            else:
+              key = split[0].lstrip("*") # remove any asterisks
+              out.prod_c[key] = float(split[1])
+              out.prod_t[key] = float(split[2])
+              out.prod_e[key] = float(split[3])
           ### Output gas products ###
           elif search_i == 0:
             if not line.strip(): # If this line is empty, skip it
               continue
             split = re.findall("\S+", line) # match by sections which are not whitespace
             key = split[0]
-            if key == "(dLV/dLP)t":
+            if key == "(dLV/dLP)t": # Will not exist in frozen
               out.c_dLV_dLP_t = float(split[1])
               out.t_dLV_dLP_t = float(split[2])
               out.dLV_dLP_t = float(split[3])
-            elif key == "(dLV/dLT)p":
+            elif key == "(dLV/dLT)p":# Will not exist in frozen
               out.c_dLV_dLT_p = float(split[1])
               out.t_dLV_dLT_p = float(split[2])
               out.dLV_dLT_p = float(split[3])
@@ -523,10 +538,17 @@ class Rocket_Problem(Problem):
             if key == "CSTAR,":
               out.cstar = float(split[2])
 
-    # Also include the actual gamma and not just the isentropic gamma
-    out.gamma = out.gammas*-out.dLV_dLP_t
-    out.c_gamma = out.c_gammas*-out.c_dLV_dLP_t
-    out.t_gamma = out.t_gammas*-out.t_dLV_dLP_t
+    if "frozen" in self.analysis_type:
+      # We don't get mole fractions in the other positions for frozen
+      del out["prod_t"]
+      del out["prod_e"]
+      # In frozen the normal equals isentropic
+      out.gamma, out.c_gamma, out.t_gamma = out.gammas, out.c_gammas, out.t_gammas
+    else:
+      # Also include the actual gamma and not just the isentropic gamma
+      out.gamma = out.gammas*-out.dLV_dLP_t
+      out.c_gamma = out.c_gammas*-out.c_dLV_dLP_t
+      out.t_gamma = out.t_gammas*-out.t_dLV_dLP_t
 
     return out
 

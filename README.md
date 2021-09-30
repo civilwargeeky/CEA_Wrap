@@ -158,10 +158,10 @@ In addition, all product dictionaries are also "Output"s so to get H2O compositi
 * gamma - "real" ratio of specific heats (multiplied by -(dLV/dLP)t) (same as gammas for frozen flow)
   * t_gamma - throat
   * c_gamma - chamber
-* \*isp - ideal isp (ambient pressure = exit pressure), s
-  * \*t_isp - throat
-* \*ivac - vacuum isp, s
-  * \*t_ivac - throat
+* isp - ideal isp (ambient pressure = exit pressure), s
+  * t_isp - throat
+* ivac - vacuum isp, s
+  * t_ivac - throat
 * cf - ideally expanded thrust coefficient
   * t_cf - throat
 * \*dLV_dLP_t - (dLV/dLP)t, multiply gammas by negative this to convert isentropic gamma to real gamma

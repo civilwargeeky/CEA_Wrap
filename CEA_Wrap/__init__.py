@@ -537,6 +537,16 @@ class Rocket_Problem(Problem):
             key = split[0]
             if key == "CSTAR,":
               out.cstar = float(split[2])
+            if "frozen" in self.analysis_type: # These don't show up in the plot file...
+              if key == "CF":
+                out.t_cf = float(split[1])
+                out.cf = float(split[2])
+              elif key == "Ivac,":
+                out.t_ivac = float(split[2])/9.81
+                out.ivac = float(split[3])/9.81
+              elif key == "Isp,":
+                out.t_isp = float(split[2])/9.81
+                out.isp = float(split[3])/9.81
 
     if "frozen" in self.analysis_type:
       # We don't get mole fractions in the other positions for frozen

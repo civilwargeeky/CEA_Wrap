@@ -162,8 +162,8 @@ In addition, all product dictionaries are also "Output"s so to get H2O compositi
   * \*t_isp - throat
 * \*ivac - vacuum isp, s
   * \*t_ivac - throat
-* \*cf - ideally expanded thrust coefficient
-  * \*t_cf - throat
+* cf - ideally expanded thrust coefficient
+  * t_cf - throat
 * \*dLV_dLP_t - (dLV/dLP)t, multiply gammas by negative this to convert isentropic gamma to real gamma
   * \*t_dLV_dLP_t - throat
   * \*c_dLV_dLP_t - chamber

@@ -5,3 +5,4 @@
 *.pyc
 !thermo_spg.inp
 !thermo_spg.out
+CEA_Wrap.egg-info/

@@ -37,6 +37,12 @@ class Material:
     self.wt_percent = None # Can only have one
     self.mols = mols
     
+  def is_mols(self): # Helper function for a material being in wt_percent or mols
+    return self.mols is not None
+    
+  def is_wt_percent(self): # Helper function for a material being in wt_percent or mols
+    return self.wt_percent is not None
+    
   def get_CEA_str(self):
     # Specify whether to use the str/val for weight or mols.
     name, ratio = "wt" if self.wt_percent is not None else "mol", self.wt_percent if self.wt_percent is not None else self.mols
@@ -162,24 +168,33 @@ class Problem:
     # Make sure we have some materials
     if material_list is None or len(material_list) == 0:
       raise ValueError("must specify at least one Material in Problem")
+
     # Makes sure that all our materials are Material objects
     if any([not isinstance(x, Material) for x in material_list]):
       raise ValueError("all items in Problem material list must be Material objects")
     # First we need to check that all of our materials have either mole/wt fractions specified. No mixing.
-    # So this is kind of gross, but if the first element has a wt_percent, then we check that all elements have a wt_percent
-    #   if the first element doesn't have a wt_percent (so it has mols), we check that all elements have mols specified
-    if not all([(mat.wt_percent if material_list[0].wt_percent is not None else mat.mols) is not None for mat in material_list]):
+    # If the first element has a wt_percent, then we check that all elements have a wt_percent
+    if not all([(mat.is_mols() if mat[0].is_mols() else mat.is_wt_percent()) for mat in material_list]):
       raise ValueError("all materials must use wt percent or mol ratio, not a mixture of both")
+      
+    fuels = list(filter(lambda x: isinstance(x, Fuel), material_list))
+    oxidizers = list(filter(lambda x: isinstance(x, Oxidizer), material_list))
+    
+    # Here we check for monopropellant cases. In a monopropellant case, you must specify only fuels and an o_f of 0 or you get weird results
+    if len(fuels) == 0 and len(oxidizers) > 0:
+      raise ValueError("Monopropellant problems must only specify fuels, not oxidizers")
+    if len(oxidizers) == 0 and (self.ratio_name != "o/f" or self.ratio_value != 0):
+      raise ValueError("Monopropellant problems must be run with o/f of 0")
   
     with open(self.filename+".inp", "w") as file:
       file.write("problem ")
       file.write(self.get_prefix_string())
       file.write("react  \n")
       # First we write all the fuels (I don't think there's a reason to write them in this order, but we'll do it anyway
-      for fuel in filter(lambda x: isinstance(x, Fuel), material_list):
+      for fuel in fuels:
         file.write(fuel.get_CEA_str())
       # Then we write all the oxidizers
-      for ox in filter(lambda x: isinstance(x, Oxidizer), material_list):
+      for ox in oxidizers:
         file.write(ox.get_CEA_str())
       if self.inserts:
         file.write("insert "+" ".join(self.inserts)+"\n")
@@ -190,26 +205,22 @@ class Problem:
       file.write(self.get_plt_string()) # output plotting string, if any
       file.write("end\n")
   
-  def _check_plt_keys(self):
-    if not self.plt_keys:
-      raise NotImplementedError("subclass of Problem must define a plt_keys attribute")
-  
   def get_plt_string(self):
-    self._check_plt_keys()
-    return f"   plot {self.plt_keys}\n"
+    return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
   
   def process_output(self):
-    self._check_plt_keys()
-    
     out = Output()
-    with open(self.filename+".plt", errors='ignore') as file:
-      for line in file:
-        new_line = line.split()
-        if new_line[0] == '#':
-          continue
-        else:
-          for key, value in zip(self.plt_keys.split(" "), new_line):
-            out[key] = float(value)
+    try:
+      with open(self.filename+".plt", errors='ignore') as file:
+        for line in file:
+          new_line = line.split()
+          if new_line[0] == '#':
+            continue
+          else:
+            for key, value in zip(self.plt_keys.split(" "), new_line):
+              out[key] = float(value)
+    except FileNotFoundError:
+      raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
     return out
   
   ## THESE MUST BE IMPLEMENTED BY SUBCLASSES ##
@@ -401,66 +412,67 @@ class Rocket_Problem(Problem):
   
   def process_output(self):
     out = Output()
-    with open(self.filename+".plt", errors='ignore') as file:
-      for counter, line in enumerate(file):
-        new_line = line.split()
-        if counter == 0:
-          continue
-        elif  counter == 1: # chamber properties
-          # Values common to all
-          out.o_f = float(new_line[8])
-          out.phi = float(new_line[13])
-          
-          # Section Properties 
-          out.c_p = float(new_line[0])
-          out.c_t = float(new_line[1])
-          out.c_m = float(new_line[4])
-          out.c_mw = float(new_line[5])
-          out.c_cp = float(new_line[6])
-          out.c_gammas = float(new_line[7])
-          out.c_rho = float(new_line[10])
-          out.c_son = float(new_line[11])
-          out.c_h = float(new_line[14])
-        elif counter == 2: # throat properties
-          # Throat/Nozzle Values
-          out.t_isp = float(new_line[2])/9.81
-          out.t_ivac = float(new_line[3])/9.81
-          out.t_cf = float(new_line[9])
-          
-          # Section Properties  
-          out.t_p = float(new_line[0])
-          out.t_t = float(new_line[1])
-          out.t_m = float(new_line[4])
-          out.t_mw = float(new_line[5])
-          out.t_cp = float(new_line[6])
-          out.t_gammas = float(new_line[7])
-          out.t_rho = float(new_line[10])
-          out.t_son = float(new_line[11])
-          out.t_h = float(new_line[14])
-        elif counter == 3: # noz properties
-          # Exit-only values
-          out.mach = float(new_line[12])
-          
-          # Throat/Nozzle Values
-          out.isp = float(new_line[2])/9.81
-          out.ivac = float(new_line[3])/9.81
-          out.cf = float(new_line[9])
-          
-          # Section Properties  
-          out.p = float(new_line[0])
-          out.t = float(new_line[1])
-          out.m = float(new_line[4])
-          out.mw = float(new_line[5])
-          out.cp = float(new_line[6])
-          out.gammas = float(new_line[7])
-          out.rho = float(new_line[10])
-          out.son = float(new_line[11])
-          out.h = float(new_line[14])
-          
+    try:
+      with open(self.filename+".plt", errors='ignore') as file:
+        for counter, line in enumerate(file):
+          new_line = line.split()
+          if counter == 0:
+            continue
+          elif  counter == 1: # chamber properties
+            # Values common to all
+            out.o_f = float(new_line[8])
+            out.phi = float(new_line[13])
+            
+            # Section Properties 
+            out.c_p = float(new_line[0])
+            out.c_t = float(new_line[1])
+            out.c_m = float(new_line[4])
+            out.c_mw = float(new_line[5])
+            out.c_cp = float(new_line[6])
+            out.c_gammas = float(new_line[7])
+            out.c_rho = float(new_line[10])
+            out.c_son = float(new_line[11])
+            out.c_h = float(new_line[14])
+          elif counter == 2: # throat properties
+            # Throat/Nozzle Values
+            out.t_isp = float(new_line[2])/9.81
+            out.t_ivac = float(new_line[3])/9.81
+            out.t_cf = float(new_line[9])
+            
+            # Section Properties  
+            out.t_p = float(new_line[0])
+            out.t_t = float(new_line[1])
+            out.t_m = float(new_line[4])
+            out.t_mw = float(new_line[5])
+            out.t_cp = float(new_line[6])
+            out.t_gammas = float(new_line[7])
+            out.t_rho = float(new_line[10])
+            out.t_son = float(new_line[11])
+            out.t_h = float(new_line[14])
+          elif counter == 3: # noz properties
+            # Exit-only values
+            out.mach = float(new_line[12])
+            
+            # Throat/Nozzle Values
+            out.isp = float(new_line[2])/9.81
+            out.ivac = float(new_line[3])/9.81
+            out.cf = float(new_line[9])
+            
+            # Section Properties  
+            out.p = float(new_line[0])
+            out.t = float(new_line[1])
+            out.m = float(new_line[4])
+            out.mw = float(new_line[5])
+            out.cp = float(new_line[6])
+            out.gammas = float(new_line[7])
+            out.rho = float(new_line[10])
+            out.son = float(new_line[11])
+            out.h = float(new_line[14])
+    except FileNotFoundError:
+      raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
+            
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
     with open(self.filename+".out") as file:
-      if "FATAL" in line:
-          raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + self.filename)
       # Ordered (in the file) list of terms that we're searching for
       search_terms = ["CHAMBER", "PERFORMANCE PARAMETERS", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
       search_i = 0
@@ -476,6 +488,8 @@ class Rocket_Problem(Problem):
       out.prod_e = Output()
       
       for line in file:
+        if "FATAL" in line:
+          raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + self.filename)
         # If we are no longer in a search area, increment our search term to look for the next search area
         if was_in_search_area and not in_search_area:
           passed_first_line = False # reset this too

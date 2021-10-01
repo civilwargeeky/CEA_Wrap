@@ -2,9 +2,10 @@
 A Python-Based wrapper for the NASA CEA Thermochemical Code
 
 # Installation Instructions
-Click on "releases" on the right side of the main page and download the .zip file.
+We are now on PyPi!
 
-In your command prompt type ```pip install [the zip file's name].zip``` e.g. ```pip install CEA_Wrap_1.0.zip```
+In a command prompt type ```pip install --upgrade CEA_Wrap``` to upgrade/install CEA_Wrap
+Click on "releases" on the right side of the main page and download the .zip file.
 
 You can now import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
 
@@ -20,10 +21,10 @@ You can view the "very_simple_example.py" file in this repository for examples o
   
 * name: required parameter, the CEA material name with correct spelling. E.G. aluminum is "Al(cr)" and methane is "CH4". 
   * If you specify chemical_composition, name can be whatever single word you want
-* temp: specified reactant temperature, kelvin
+* temp: default 298, specified reactant temperature, kelvin
 * wt_percent: A weight-based percentage for the element. Weight percentages do not need to add up to 100, and are calculated on the ratio with other Fuels/Oxidizers
 * mols: A mol-based percentage for the element. Can be used as in Oxidizer("O2", mols=1) and Oxidizer("N2", mols=3.76) for air (except CEA has "air" as a reactant...)
-  * wt_percent and mols cannot be specified together, if neither is defined, the Material gets a wt_percent of 1
+* **NOTE:** wt_percent and mols cannot be specified together, if neither is defined, the Material gets a wt_percent of 1
 * chemical_composition: chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values 
   * **NOTE: UNTESTED**
 * hf:  Enthalpy of formation, kJ/kg, must be specified if chemical_composition is specified
@@ -34,7 +35,7 @@ You can view the "very_simple_example.py" file in this repository for examples o
   ```__init__(*, **kwargs)```:
 * **NOTE:** all parameters must be specified by keyword, e.g. problem = RocketProblem(pressure=500, massf=True)
 * pressure: default 1000, Initial problem pressure
-  * pressure can be specified later with .set_pressure 
+  * pressure can be specified later with .set_pressure
 * materials: default None, List of Material objects, order doesn't matter, of Oxidizer and Fuel objects e.g. materials=[material1, material2, ...]
   * materials can be specified later with .set_materials([material1, material2, ...])
   * materials can also be specified when you run a problem like problem.run_cea(material1, material2, ...)

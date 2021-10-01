@@ -73,7 +73,12 @@ Well no more! Just call this function and we calculate the correct o_f ratio for
   Functions off of the existing material list, so call this after setting materials
 
 ## Rocket Problem Constructor Additional Parameters:
-* ae_at: default 1, exit/throat area ratio
+* sup: default 1, supersonic exit/throat area ratio
+  * sup can be specified later with .set_sup
+* sub: default None, subsonic exit/throat area ratio
+  * sub can be specified later with .set_sub
+* **NOTE:** sup and sub cannot be specified at the same time
+* ae_at: default None, exit/throat area ratio (alias for sup)
   * ae_at can be specified later with .set_ae_at
 * analysis_type: default "equilibrium", whether to use equilibrium reactions or frozen. For using frozen specify "frozen" or "frozen nfz=1" for frozen at the chamber or "frozen nfz=2" for frozen at the throat
 

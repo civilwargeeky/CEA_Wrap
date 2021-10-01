@@ -174,7 +174,7 @@ class Problem:
       raise ValueError("all items in Problem material list must be Material objects")
     # First we need to check that all of our materials have either mole/wt fractions specified. No mixing.
     # If the first element has a wt_percent, then we check that all elements have a wt_percent
-    if not all([(mat.is_mols() if mat[0].is_mols() else mat.is_wt_percent()) for mat in material_list]):
+    if not all([(mat.is_mols() if material_list[0].is_mols() else mat.is_wt_percent()) for mat in material_list]):
       raise ValueError("all materials must use wt percent or mol ratio, not a mixture of both")
       
     fuels = list(filter(lambda x: isinstance(x, Fuel), material_list))
@@ -389,10 +389,17 @@ class Rocket_Problem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h"
     
-  def __init__(self, *args, ae_at=1, analysis_type="equilibrium", **kwargs):
+  def __init__(self, *args, sup=1, sub=None, ae_at=None, analysis_type="equilibrium", **kwargs):
     super().__init__(*args, **kwargs)
+    
+    if ae_at:
+      sup = ae_at
+    if sup and sub:
+      raise ValueError("Can only specify supersonic or subsonic area ratio, not both")
 
     analysis_type = analysis_type.lower() # ensure case because we check for frozen by literal
+    self.area_ratio_name = "sup" if sup else "sub" # Can only specify one supersonic or subsonic area ratio
+    self.area_ratio_value = sup if sup else sub
     self.ae_at = ae_at
     self.analysis_type = analysis_type # equilibrium or frozen
     
@@ -400,14 +407,16 @@ class Rocket_Problem(Problem):
       raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
   
   
-  def set_ae_at(self, ae_at): self.ae_at = ae_at
+  def set_sup(self, sup): self.area_ratio_name = "sup"; self.area_ratio_value = sup
+  def set_sub(self, sub): self.area_ratio_name = "sub"; self.area_ratio_value = sub
+  def set_ae_at(self, ae_at): self.set_sup(ae_at)
   
   def get_prefix_string(self):
     toRet = []
     toRet.append("{} {}".format(self.problem_type, self.analysis_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
-    toRet.append("   {} = {:0.5f}".format("sup" if self.ae_at >= 1 else "sub", self.ae_at)) # Actually wait this is dumb.... should be sup and sub separate
+    toRet.append("   {} = {:0.5f}".format(self.area_ratio_name, self.area_ratio_value)) # Actually wait this is dumb.... should be sup and sub separate
     return "\n".join(toRet) + "\n"
   
   def process_output(self):

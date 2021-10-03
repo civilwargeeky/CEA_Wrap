@@ -389,11 +389,13 @@ class Rocket_Problem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h"
     
-  def __init__(self, *args, sup=1, sub=None, ae_at=None, analysis_type="equilibrium", **kwargs):
+  def __init__(self, *args, sup=None, sub=None, ae_at=None, analysis_type="equilibrium", **kwargs):
     super().__init__(*args, **kwargs)
     
     if ae_at:
       sup = ae_at
+    if not sup and not sub: # Default if nothing is specified
+      sup = 1
     if sup and sub:
       raise ValueError("Can only specify supersonic or subsonic area ratio, not both")
 

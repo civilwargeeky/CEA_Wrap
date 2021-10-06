@@ -146,8 +146,8 @@ class Problem:
   
   def set_absolute_o_f(self):
     # Set an o_f ratio assuming that the wt_percent of each of our materials is an absolute percentage
-    sum_ox   = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Oxidizer), material_list)])
-    sum_fuel = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Fuel), material_list)])
+    sum_ox   = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Oxidizer), self.materials)])
+    sum_fuel = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Fuel), self.materials)])
     o_f = sum_ox/sum_fuel
     self.set_o_f(o_f)
     return o_f

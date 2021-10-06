@@ -1,7 +1,7 @@
 import setuptools
 
 setuptools.setup( name='CEA_Wrap',
-                  version='1.3.1',
+                  version='1.3.2',
                   description='A Python-Based wrapper for the NASA CEA Thermochemical Code',
                   url='https://github.com/civilwargeeky/CEA_Wrap',
                   author='civilwargeeky',

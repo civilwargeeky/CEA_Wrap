@@ -1,19 +1,21 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
+from .utils import _get_asset
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
-with importlib.resources.path(__package__+".assets", _BASE_CEA) as manager:
-  CEA_LOCATION = str(manager)
+CEA_LOCATION = _get_asset(_BASE_CEA)
 
 for file in ["thermo.lib", "trans.lib"]:
   if not os.path.isfile(file):
-    print(file+" not found in current directory. Copying from package...")
-    with importlib.resources.path(__package__+".assets", file) as manager:
-      shutil.copyfile(manager, file)
+    print(file+" not found in current directory. Copying from package to current directory...")
+    shutil.copyfile(_get_asset(file), file)
+
+# Load in the supplied thermo_spg.inp file so we can check input materials against it
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES
+  check_against_thermo_inp = True # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
   
   def __init__(self, name, temp=298, wt_percent=None, mols=None, chemical_composition = None, hf = None):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care

@@ -7,3 +7,5 @@
 !thermo_spg.out
 CEA_Wrap.egg-info/
 build.bat
+cea2.f
+cea.inc

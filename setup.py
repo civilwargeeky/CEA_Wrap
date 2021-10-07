@@ -30,6 +30,7 @@ class PostInstallCommand(install):
       # You can see printed output in pip by using --verbose
       # Before install.run is called you have the original directory structure with setup.py in here and CEA_Wrap in the next directory down
       
+      # Note to maintainers: I stopped including "cea2.f" and "cea.inc" in the git. You can get these from the NASA website.
       sys = platform.system()
       if sys in ["Linux", "Darwin"]: # If we need to compile CEA for this system
         print("posix system detected, compiling FCEA for use on this machine")
@@ -39,35 +40,34 @@ class PostInstallCommand(install):
         else:
           print("Hoping that you have gfortran and xcode installed. Otherwise, follow these instructions:\n", instructions)
         print("Compiling FCEA2")
-        os.chdir("CEA_Wrap")
+        os.chdir("CEA_Wrap/assets")
         subprocess.check_call("gfortran cea2.f -o FCEA2".split())
         print("Compiling thermo and trans libs")
         subprocess.run("./FCEA2", input="thermo_spg\n", text=True, stdout=subprocess.DEVNULL)
         subprocess.run("./FCEA2", input="trans\n", text=True, stdout=subprocess.DEVNULL)
-        os.chdir("..")
+        os.chdir("../..")
         print("Process complete!")
       
       install.run(self) # Call normal install function
         
 with open("README.md", "r") as fh:
     long_description = fh.read()
+    # For viewing on PyPI
+    long_description = "**PyPI NOTE: This package is installed with 'pip install CEA_Wrap' with an underscore. PyPI doesn't support underscores**\n\n" + long_description
 
 setuptools.setup( name='CEA_Wrap',
-                  version='1.3.4',
+                  version='1.4.0',
                   description='A Python-Based wrapper for the NASA CEA Thermochemical Code',
                   long_description=long_description,
                   long_description_content_type="text/markdown",
                   url='https://github.com/civilwargeeky/CEA_Wrap',
-                  author='civilwargeeky',
+                  author='Daniel Klinger',
                   author_email='klingerd@purdue.edu',
                   license_files=["LICENSE"],
                   install_requires=[],
                   packages=setuptools.find_packages(),
                   python_requires=">=3.6",
-                  package_data={
-                    "": ["FCEA2.exe", "thermo.lib", "trans.lib", "thermo_spg.inp", "thermo_spg.out", "FCEA2"],
-                  },
-                  include_package_data=True, # Add in pdfs and executables
+                  include_package_data=True, # Add in pdfs and executables defined in the manifest
                   zip_safe=False,
                   cmdclass={
                     'install': PostInstallCommand,

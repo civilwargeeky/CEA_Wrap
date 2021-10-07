@@ -3,13 +3,13 @@ import importlib.resources, platform
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
-with importlib.resources.path(__package__, _BASE_CEA) as manager:
+with importlib.resources.path(__package__+".assets", _BASE_CEA) as manager:
   CEA_LOCATION = str(manager)
 
 for file in ["thermo.lib", "trans.lib"]:
   if not os.path.isfile(file):
     print(file+" not found in current directory. Copying from package...")
-    with importlib.resources.path(__package__, file) as manager:
+    with importlib.resources.path(__package__+".assets", file) as manager:
       shutil.copyfile(manager, file)
 
 class Material:

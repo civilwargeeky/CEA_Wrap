@@ -1,7 +1,9 @@
 import subprocess, re, os.path, shutil
-import importlib.resources
+import importlib.resources, platform
 
-with importlib.resources.path(__package__, "FCEA2.exe") as manager:
+_BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
+
+with importlib.resources.path(__package__, _BASE_CEA) as manager:
   CEA_LOCATION = str(manager)
 
 for file in ["thermo.lib", "trans.lib"]:

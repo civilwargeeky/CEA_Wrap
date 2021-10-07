@@ -3,3 +3,5 @@ include */thermo.lib
 include */trans.lib
 include */thermo_spg.inp
 include */thermo_spg.out
+include */cea2.f
+include */cea.inc

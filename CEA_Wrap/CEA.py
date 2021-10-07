@@ -156,7 +156,7 @@ class Problem:
     self.set_o_f(o_f)
     return o_f
   
-  def run_cea(self, *materials):
+  def run(self, *materials):
     if self.ratio_name == None:
       raise TypeError("No reactant ratio specified, must set phi, or o/f, or %f, etc.")
     if len(materials) > 0: # If they specify materials, update our list
@@ -167,6 +167,7 @@ class Problem:
       raise RuntimeError("unable to open input file for writing...")
     run_cea_backend(self.filename)
     return self.process_output()
+  run_cea = run # alias for backward-compatibility
   
   def make_input_file(self, material_list): # chamber conditions and materials list
     # Make sure we have some materials
@@ -231,7 +232,7 @@ class Problem:
   def get_prefix_string(self):
     raise NotImplementedError()
 
-class Detonation_Problem(Problem):
+class DetonationProblem(Problem):
   problem_type = "det"
   plt_keys = "p t h mw cp gammas phi vel mach rho son"
   
@@ -316,7 +317,7 @@ class Detonation_Problem(Problem):
     
     return out
     
-class HP_Problem(Problem):
+class HPProblem(Problem):
   problem_type = "hp"
   plt_keys = "p t h mw cp gammas phi rho son"
   def get_prefix_string(self):
@@ -389,7 +390,7 @@ class HP_Problem(Problem):
     
     return out
 
-class Rocket_Problem(Problem):
+class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h"
     
@@ -443,6 +444,8 @@ class Rocket_Problem(Problem):
             out.c_t = float(new_line[1])
             out.c_m = float(new_line[4])
             out.c_mw = float(new_line[5])
+            if out.c_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.c_m = out.c_mw
             out.c_cp = float(new_line[6])
             out.c_gammas = float(new_line[7])
             out.c_rho = float(new_line[10])
@@ -458,6 +461,8 @@ class Rocket_Problem(Problem):
             out.t_p = float(new_line[0])
             out.t_t = float(new_line[1])
             out.t_m = float(new_line[4])
+            if out.t_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.t_m = out.t_mw
             out.t_mw = float(new_line[5])
             out.t_cp = float(new_line[6])
             out.t_gammas = float(new_line[7])
@@ -478,6 +483,8 @@ class Rocket_Problem(Problem):
             out.t = float(new_line[1])
             out.m = float(new_line[4])
             out.mw = float(new_line[5])
+            if out.m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.m = out.mw
             out.cp = float(new_line[6])
             out.gammas = float(new_line[7])
             out.rho = float(new_line[10])

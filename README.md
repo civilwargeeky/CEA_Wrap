@@ -5,14 +5,18 @@ A Python-Based wrapper for the NASA CEA Thermochemical Code
 We are now on PyPi!
 
 In a command prompt type ```pip install --upgrade CEA_Wrap``` to upgrade/install CEA_Wrap
-Click on "releases" on the right side of the main page and download the .zip file.
+
+Or you can click on "releases" on the right side of the main page and download the .zip file, then do ```pip install --upgrade [your zip file name].zip```
 
 You can now import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
 
 # Examples
-You can view the "very_simple_example.py" file in this repository for examples on use.
+Examples on basic use can be found in the "examples" directory.
+
+Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 
 # Documentation
+
 ## Specifying Materials
   In order to run problems, you must create materials. Materials must be either Fuel or Oxidizer (F or O) objects
   
@@ -30,8 +34,9 @@ You can view the "very_simple_example.py" file in this repository for examples o
 * hf:  Enthalpy of formation, kJ/kg, must be specified if chemical_composition is specified
   * **NOTE: UNTESTED**
 
-## Generic Problem Methods:
-  ### Constructor Parameters (making new Problem Objects):
+## Generic Problem Methods (apply to all problems such as DetonationProblem, RocketProblem, etc.):
+
+### Constructor Parameters (making new Problem Objects):
   ```__init__(*, **kwargs)```:
 * **NOTE:** all parameters must be specified by keyword, e.g. problem = RocketProblem(pressure=500, massf=True)
 * pressure: default 1000, Initial problem pressure
@@ -87,7 +92,7 @@ All output objects are "Output" objects, which are similar to dictionaries, but 
 
 For example if you had "data = problem.run_cea()", and wanted pressure, you could do either data.p or data["p"]
 
-In addition, all product dictionaries are also "Output"s so to get H2O composition, you could use data.prod_c.H2O or data["prod_c"]["H2O"] or data["prod_c"].H2O, etc.
+In addition, all product dictionaries are also "Output" objects so to get H2O composition, you could use data.prod_c.H2O or data["prod_c"]["H2O"] or data["prod_c"].H2O, etc.
 
 ### Detonation:
 * prod_c - dictionary of chamber products, in mole or mass fractions (as specified in problem)
@@ -152,7 +157,7 @@ In addition, all product dictionaries are also "Output"s so to get H2O compositi
 * mw - molecular weight of all products, kg/kmol
   * t_mw - throat
   * c_mw - chamber
-* m - molecular weight calculated as the weight of all products divided by the number of gaseous moles (0 if no condensed phases as mw=m), kg/kmol
+* m - molecular weight calculated as the weight of all products divided by the number of gaseous moles (same as mw if no condensed phases as mw=m), kg/kmol
   * t_m - throat
   * c_m - chamber
 * cp - constant-pressure specific heat capacity, kJ/(kg*K)

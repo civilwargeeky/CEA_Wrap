@@ -41,6 +41,8 @@ class Material:
     self.wt_percent = None # Can only have one
     self.mols = mols
     
+  def set_temp(self, temp): self.temp=temp
+    
   def is_mols(self): # Helper function for a material being in wt_percent or mols
     return self.mols is not None
     
@@ -137,10 +139,12 @@ class Problem:
   def set_pressure(self, pressure): self.pressure = pressure
   def set_materials(self, materials): self.materials = materials
   def set_massf(self, massf): self.massf = massf
+
   def set_filename(self, filename): 
     if ".inp" in filename or "/" in filename: # Must be a string of alphanumeric characters
       raise ValueError("Cannot save to filename with .inp or / in it")
     self.filename = filename
+  
   def set_pressure_units(self, pressure_units):
     pressure_units = pressure_units.lower() # We only have a few options for pressure units
     choices = ["bar", "atm", "psi", "mmh"]
@@ -227,7 +231,7 @@ class Problem:
     except FileNotFoundError:
       raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
     return out
-  
+
   ## THESE MUST BE IMPLEMENTED BY SUBCLASSES ##
   def get_prefix_string(self):
     raise NotImplementedError()
@@ -461,9 +465,9 @@ class RocketProblem(Problem):
             out.t_p = float(new_line[0])
             out.t_t = float(new_line[1])
             out.t_m = float(new_line[4])
+            out.t_mw = float(new_line[5])
             if out.t_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
               out.t_m = out.t_mw
-            out.t_mw = float(new_line[5])
             out.t_cp = float(new_line[6])
             out.t_gammas = float(new_line[7])
             out.t_rho = float(new_line[10])
@@ -598,7 +602,7 @@ class RocketProblem(Problem):
 
     return out
 
-class Data_Collector(Output):
+class DataCollector(Output):
   def __init__(self, *args, keys=[], chamber_keys=[], exit_keys=[]):
     if len(args) > 0:
       if keys:

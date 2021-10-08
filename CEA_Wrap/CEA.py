@@ -1,5 +1,6 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
+from zlib import crc32
 from .utils import _get_asset, Output
 from .thermo_lib import ThermoInterface
 
@@ -8,7 +9,17 @@ _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 CEA_LOCATION = _get_asset(_BASE_CEA)
 
 for file in ["thermo.lib", "trans.lib"]:
-  if not os.path.isfile(file):
+  if os.path.isfile(file):
+    # If the file is here, we check the hash of it against the package one
+    pack_file = _get_asset(file)
+    with open(pack_file, "rb") as f1, open(file, "rb") as f2:
+      pack_hash = crc32(f1.read())
+      local_hash = crc32(f2.read())
+    if pack_hash != local_hash: 
+      print(file+" hash does not match package file hash! Updating local file with one from package")
+      shutil.copyfile(pack_file, file)
+  else:
+    # If not here, copy it from package
     print(file+" not found in current directory. Copying from package to current directory...")
     shutil.copyfile(_get_asset(file), file)
 

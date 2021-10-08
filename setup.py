@@ -56,7 +56,7 @@ with open("README.md", "r") as fh:
     long_description = "**PyPI NOTE: This package is installed with 'pip install CEA_Wrap' with an underscore. PyPI doesn't support underscores**\n\n" + long_description
 
 setuptools.setup( name='CEA_Wrap',
-                  version='1.4.0',
+                  version='1.4.2',
                   description='A Python-Based wrapper for the NASA CEA Thermochemical Code',
                   long_description=long_description,
                   long_description_content_type="text/markdown",

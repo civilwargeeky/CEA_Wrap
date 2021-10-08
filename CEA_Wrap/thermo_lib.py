@@ -23,8 +23,12 @@ class ThermoMaterial(Output):
       except KeyError:
         raise KeyError("ThermoMaterial did not receive keyword arg '{}'".format(elem)) from None
         
-  def defined_at(temp):
-    pass
+  def defined_at(self, temp):
+    # Returns True if the element is defined in any of the reactant's temperature ranges
+    for low, high in self.temp_ranges:
+      if low < temp < high:
+        return True
+    return False
 
 def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
   """

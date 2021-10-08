@@ -44,9 +44,12 @@ class Material:
         close_matches2_ind = close_match_index(name, list(map(lambda x: x[:len(name)], name_list)), n=3)
         close_matches2 = [name_list[i] for i in close_matches2_ind]
         close_matches = close_matches1 + close_matches2
-        raise ValueError(f"specified element '{name}' does not exist in package thermo library\n" +
+        raise ValueError(f"specified material '{name}' does not exist in package thermo library\n" +
                          f"Change name or set {__package__}.Material.check_against_thermo_inp to False\n"+
                          f"{len(close_matches)} Closest matches for '{name}': \"" + '", "'.join(close_matches)+'"')
+    
+      if not self.thermo_materials[name].defined_at(temp):
+        raise ValueError(f"specified material '{name}' does not exist at temperature {temp:0.2f}")
     
     if wt_percent and mols:
       raise TypeError("Material cannot have both wt_percent and mols specified")
@@ -59,7 +62,10 @@ class Material:
     self.wt_percent = None # Can only have one
     self.mols = mols
     
-  def set_temp(self, temp): self.temp=temp
+  def set_temp(self, temp): 
+    if self.check_against_thermo_inp and not self.thermo_materials[name].defined_at(temp):
+      raise ValueError(f"specified material '{name}' does not exist at temperature {temp:0.2f}")
+    self.temp=temp
     
   def is_mols(self): # Helper function for a material being in wt_percent or mols
     return self.mols is not None

@@ -1,6 +1,6 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
-from .utils import _get_asset
+from .utils import _get_asset, Output
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
@@ -15,7 +15,10 @@ for file in ["thermo.lib", "trans.lib"]:
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES
-  check_against_thermo_inp = True # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
+  # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
+  #   also, will add .ref member to all objects for the thermo input reference
+  check_against_thermo_inp = True 
+  
   
   def __init__(self, name, temp=298, wt_percent=None, mols=None, chemical_composition = None, hf = None):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
@@ -81,17 +84,6 @@ def run_cea_backend(filename):
     raise RuntimeError("Running CEA failed with errors")
   return ret
   
-class Output(dict): # This is just a dictionary that you can also use dot notation to access
-  def __init__(self): # Explicitly must receive no arguments, because I don't want to deal with constructor properties
-    super()
-  def __getattr__(self, name):
-    return self[name]
-  def __setattr__(self, name, value):
-    if name.startswith("_"):
-      super().__setattr__(name, value)
-    else:
-      self[name] = value
-
 # My idea is that we could have different types of problems with similar methods for like get_prefix_string and things
 class Problem:
   ### NOTE : ALL PROBLEM SUBCLASSES MUST SPECIFY PROBLEM TYPE AND PLOT KEYS ###

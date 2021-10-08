@@ -1,5 +1,17 @@
 import importlib.resources, os.path
 
+class Output(dict): # This is just a dictionary that you can also use dot notation to access
+  def __init__(self): # Explicitly must receive no arguments, because I don't want to deal with constructor properties
+    super().__init__()
+    
+  def __getattr__(self, name):
+    return self[name]
+  def __setattr__(self, name, value):
+    if name.startswith("_"):
+      super().__setattr__(name, value)
+    else:
+      self[name] = value
+
 def _get_asset(file):
   # The reason the manager is used is because our package may be zipped and the manager extracts it
   #   However, this package is not zip-safe so we just return the location

@@ -66,7 +66,7 @@ input()
 
 # at 400K, 12% of total composition
 aluminum = Fuel("AL(cr)", wt_percent=12, temp=400)
-# htpb is only specified in our thermo lib at 298K +- 15K
+# htpb is only specified in our thermo lib at 298K +- 10K
 htpb = Fuel("HTPB", wt_percent=14)
 # ammonium perchlorate
 ap = Oxidizer("NH4CLO4(I)", wt_percent=74, temp=400)

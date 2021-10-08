@@ -1,6 +1,9 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
 from .utils import _get_asset, Output
+from .thermo_lib import load_thermo_file as _load_thermo_file
+import difflib # for nearby element matches
+from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
@@ -11,14 +14,15 @@ for file in ["thermo.lib", "trans.lib"]:
     print(file+" not found in current directory. Copying from package to current directory...")
     shutil.copyfile(_get_asset(file), file)
 
-# Load in the supplied thermo_spg.inp file so we can check input materials against it
+
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES
   # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True 
-  
+  # Load in the supplied thermo_spg.inp file so we can check input materials against it
+  thermo_materials = _load_thermo_file() # This is a dict of element name: thermo_lib.ThermoMaterial object
   
   def __init__(self, name, temp=298, wt_percent=None, mols=None, chemical_composition = None, hf = None):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
@@ -32,6 +36,17 @@ class Material:
     self.hf = hf # Enthalpy of formation, if needs to be defined.
     if chemical_composition != None and hf == None:
       raise ValueError("Elements entered molecule by molecule must have defined hf")
+    
+    if self.check_against_thermo_inp and not chemical_composition: # If they don't override thermo.lib data and we check for missing elements
+      if name not in self.thermo_materials:
+        name_list = list(self.thermo_materials) # maintain ordering
+        close_matches1 = difflib.get_close_matches(name, name_list, n=3)
+        close_matches2_ind = close_match_index(name, list(map(lambda x: x[:len(name)], name_list)), n=3)
+        close_matches2 = [name_list[i] for i in close_matches2_ind]
+        close_matches = close_matches1 + close_matches2
+        raise ValueError(f"specified element '{name}' does not exist in package thermo library\n" +
+                         f"Change name or set {__package__}.Material.check_against_thermo_inp to False\n"+
+                         f"{len(close_matches)} Closest matches for '{name}': \"" + '", "'.join(close_matches)+'"')
     
     if wt_percent and mols:
       raise TypeError("Material cannot have both wt_percent and mols specified")

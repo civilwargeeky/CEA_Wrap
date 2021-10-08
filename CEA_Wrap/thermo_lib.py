@@ -27,6 +27,10 @@ class ThermoMaterial(Output):
     pass
 
 def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
+  """
+    Loads the thermo input file at filename
+    Returns a dictionary of name: ThermoMaterial representing the material
+  """
   
   split_by_num = lambda string, num: [string[i:i+num] for i in range(0, len(string), num)]
   
@@ -76,7 +80,7 @@ def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
       reactant_only = after_air,
     )
     
-  materials = []
+  materials = {}
   after_air = False # All materials after and including Air may only be defined as reactants (they don't show up in products)
   # Source: The CEA specification
   
@@ -95,8 +99,8 @@ def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
           continue
         if len(cur_mat_lines) > 0: # We will now process the previous material that we are at a new one
           try:
-            materials.append(process_lines(cur_mat_lines, after_air))
-            from pprint import pprint
+            mat = process_lines(cur_mat_lines, after_air)
+            materials[mat.name] = mat
           except AssertionError: # errors on "thermo" line because it isn't a proper line
             pass
           cur_mat_lines.clear() # clear this array for further use

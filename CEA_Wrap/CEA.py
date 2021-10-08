@@ -1,9 +1,7 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
 from .utils import _get_asset, Output
-from .thermo_lib import load_thermo_file as _load_thermo_file
-import difflib # for nearby element matches
-from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
+from .thermo_lib import ThermoInterface
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
@@ -14,15 +12,14 @@ for file in ["thermo.lib", "trans.lib"]:
     print(file+" not found in current directory. Copying from package to current directory...")
     shutil.copyfile(_get_asset(file), file)
 
-
+# Load our interface to all the ThermoMaterials
+ThermoInterface.load()
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES
   # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True 
-  # Load in the supplied thermo_spg.inp file so we can check input materials against it
-  thermo_materials = _load_thermo_file() # This is a dict of element name: thermo_lib.ThermoMaterial object
   
   def __init__(self, name, temp=298, wt_percent=None, mols=None, chemical_composition = None, hf = None):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
@@ -38,17 +35,15 @@ class Material:
       raise ValueError("Elements entered molecule by molecule must have defined hf")
     
     if self.check_against_thermo_inp and not chemical_composition: # If they don't override thermo.lib data and we check for missing elements
-      if name not in self.thermo_materials:
-        name_list = list(self.thermo_materials) # maintain ordering
-        close_matches1 = difflib.get_close_matches(name, name_list, n=3)
-        close_matches2_ind = close_match_index(name, list(map(lambda x: x[:len(name)], name_list)), n=3)
-        close_matches2 = [name_list[i] for i in close_matches2_ind]
-        close_matches = close_matches1 + close_matches2
-        raise ValueError(f"specified material '{name}' does not exist in package thermo library\n" +
+      if name not in ThermoInterface:
+        close_matches = ThermoInterface.get_close_matches(name)
+        raise ValueError(f"specified element '{name}' does not exist in package thermo library\n" +
                          f"Change name or set {__package__}.Material.check_against_thermo_inp to False\n"+
-                         f"{len(close_matches)} Closest matches for '{name}': \"" + '", "'.join(close_matches)+'"')
+                         f"Material '{name}' {len(close_matches)} closest matches: \"" + '", "'.join(close_matches)+'"')
+      
+      self.ref = ThermoInterface[name] # Get the ThermoMaterial and store it in ref
     
-      if not self.thermo_materials[name].defined_at(temp):
+      if not ThermoInterface[name].defined_at(temp):
         raise ValueError(f"specified material '{name}' does not exist at temperature {temp:0.2f}")
     
     if wt_percent and mols:
@@ -88,6 +83,9 @@ class Material:
         string += " " + self.chemical_composition
       return string + " \n"
       
+  def __str__(self):
+    return self.name
+      
 class Fuel(Material):
   output_type = "fuel"
 F = Fuel # Alias
@@ -111,6 +109,9 @@ class Problem:
   problem_type = None
   plt_keys = None # plt_keys should be a space-separated string of items to go into the "plt" command of FCEA2
   
+  # If true, on initialization, we check if all inserts and omits exist in the supplied thermo_spg input file
+  check_against_thermo_inp = True 
+  
   _ratio_options = ["p_f", "f_o", "o_f", "phi", "r_eq"] # Possible function arguments
   _ratio_CEA =     ["%f",  "f/o", "o/f", "phi", "r"] # Values to put into CEA
   def _set_fuel_ratio(self, **kwargs):
@@ -123,17 +124,45 @@ class Problem:
         self.ratio_name = CEA # put in the string to place into CEA
         self.ratio_value = kwargs[option] # Then get the float
         found_one = True
-        
   
+  def _format_input_list(self, inputList):
+    # Transmutes the inputList to a space-separated list of names
+    # checks each element to ensure it is a valid material
+    if inputList is None:
+      return None
+    if isinstance(inputList, str):
+      inputList = inputList.split()
+    inputList = list(map(str, inputList)) # make any Materials supplied into strings
+    if self.check_against_thermo_inp:
+      for material in inputList:
+        if material not in ThermoInterface:
+          close_matches = ThermoInterface.get_close_matches(material)
+          raise ValueError(f"specified element '{material}' does not exist in package thermo library\n" +
+                           f"Change name or set {__package__}.{__class__}.check_against_thermo_inp to False\n"+
+                           f"Material '{material}' {len(close_matches)} closest matches: \"" + '", "'.join(close_matches)+'"')
+    return " ".join(inputList) # return to space-separated form
+    
   # All arguments must be specified by keyword
-  def __init__(self, *, pressure=1000, materials=None, massf=False, filename="my_output", pressure_units="psi", inserts=None, omits=None, **kwargs):
+  def __init__(self, *, 
+        pressure=1000, # Chamber/operation pressure
+        materials=None, # List of Material objects
+        massf=False, # mass fractions or mol fractions in output
+        filename="my_output", # The file to be used for .inp/.out/.plt files
+        pressure_units="psi", # units for pressure
+        inserts=None, # space-separated string of inserts
+        omits=None, # space-separated string of omits
+        **kwargs
+      ):
+      
     self.massf = massf
     self.materials = materials
-    self.inserts = inserts
-    self.omits = omits
     self.pressure = pressure
     self.set_pressure_units(pressure_units)
     self.set_filename(filename)
+    
+    # Check against thermo file for these to prevent errors
+    self.inserts = self._format_input_list(inserts)
+    self.omits   = self._format_input_list(omits)
     
     self.ratio_name = None
     self.ratio_value = None
@@ -152,6 +181,8 @@ class Problem:
   def set_pressure(self, pressure): self.pressure = pressure
   def set_materials(self, materials): self.materials = materials
   def set_massf(self, massf): self.massf = massf
+  def set_inserts(self, inserts): self.inserts = self._format_input_list(inserts)
+  def set_omits(self, omits): self.inserts = self._format_input_list(omits)
 
   def set_filename(self, filename): 
     if ".inp" in filename or "/" in filename: # Must be a string of alphanumeric characters
@@ -667,7 +698,7 @@ if __name__ == "__main__":
   chamber_pressure = 1000
   exit_pressure = 14.7
   
-  problem = Rocket_Problem(pressure=1000, o_f=5)
+  problem = RocketProblem(pressure=1000, o_f=5, omits="Al(cr)")
   
   for ae_at in [chamber_pressure/exit_pressure, 80]:
     problem.set_ae_at(ae_at)

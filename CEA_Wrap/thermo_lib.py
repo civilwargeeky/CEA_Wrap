@@ -1,6 +1,39 @@
 import re, os.path
 from time import time
+import difflib # for nearby element matches
+from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
 from .utils import _get_asset, Output
+
+class _Meta(type):
+  def __getitem__(cls, name): # Allows ThermoInterface["CH4"]
+    return cls.thermo_materials[name]
+    
+  def __contains__(self, name): # Allows "CH4" in ThermoInterface
+    return name in self.thermo_materials
+
+class ThermoInterface(metaclass=_Meta):
+  """
+    Static class for accessing all the thermo materials we load
+  """
+  
+  def __init__(*args, **kwargs):
+    raise NotImplementedError("this is a static class and can't be instantiated")
+  
+  @classmethod
+  def load(self):
+    self.thermo_materials = load_thermo_file()
+  
+  @classmethod
+  def get_close_matches(self, name, n=6):
+    n1 = int(n/2) # round down
+    n2 = int(round(n/2,0)) # round up
+    name_list = list(self.thermo_materials) # maintain ordering for indexing
+    # Get matches for the material itself. Matches things like "CH3" --> "CH4" or "Al(cr)" --> "AL(cr)"
+    close_matches1 = difflib.get_close_matches(name, name_list, n=n1)
+    # Then get matches for partially filled names. Matches things like "C8H18" --> "C8H18,isohexalate" or whatever
+    close_matches2_ind = close_match_index(name, list(map(lambda x: x[:len(name)], name_list)), n=n2)
+    close_matches2 = [name_list[i] for i in close_matches2_ind]
+    return list(sorted(set(close_matches1 + close_matches2))) # set so we have unique entries, then sort and convert to list
 
 class ThermoMaterial(Output):
   def __init__(self, *args, **kwargs):
@@ -11,7 +44,7 @@ class ThermoMaterial(Output):
                 "reference", # Reference, if given. Otherwise ""
                 "elements", # Dictionary of element: numerical value specified
                 "condensed", # True if condensed phase, False otherwise
-                "mol_wt", # Molecular weight in g/mol
+                "mw", # Molecular weight in g/mol
                 "hf", # float heat of formation at 298.15 in kJ/mol (or assigned enthalpy if 0 temp range)
                 "temp_ranges", # List of two-tuples of [range start, range end] (K)
                 "reactant_only", # True if material only shows up in reactants, False otherwise
@@ -78,7 +111,7 @@ def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
       reference = ref,
       elements = elems,
       condensed = condensed,
-      mol_wt = mw,
+      mw = mw,
       hf = hf,
       temp_ranges = temps,
       reactant_only = after_air,
@@ -115,6 +148,7 @@ def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
   elapsed = time() - start_time
   print("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
   return materials
-  
+
+
 if __name__ == "__main__":
   load_thermo_file()

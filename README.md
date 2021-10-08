@@ -160,6 +160,9 @@ In addition, all product dictionaries are also "Output" objects so to get H2O co
 * m - molecular weight calculated as the weight of all products divided by the number of gaseous moles (same as mw if no condensed phases as mw=m), kg/kmol
   * t_m - throat
   * c_m - chamber
+* condensed - True if there are condensed phase products (measured by m originally = 0), False otherwise
+  * t_condensed - throat
+  * c_condensed - chamber
 * cp - constant-pressure specific heat capacity, kJ/(kg*K)
   * t_cp - throat
   * c_cp - chamber

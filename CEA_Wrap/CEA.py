@@ -449,7 +449,10 @@ class RocketProblem(Problem):
             out.c_m = float(new_line[4])
             out.c_mw = float(new_line[5])
             if out.c_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.c_condensed = False
               out.c_m = out.c_mw
+            else:
+              out.c_condensed = True # has condensed phase products
             out.c_cp = float(new_line[6])
             out.c_gammas = float(new_line[7])
             out.c_rho = float(new_line[10])
@@ -467,7 +470,10 @@ class RocketProblem(Problem):
             out.t_m = float(new_line[4])
             out.t_mw = float(new_line[5])
             if out.t_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.t_condensed = False
               out.t_m = out.t_mw
+            else:
+              out.t_condensed = True # has condensed phase products
             out.t_cp = float(new_line[6])
             out.t_gammas = float(new_line[7])
             out.t_rho = float(new_line[10])
@@ -488,7 +494,10 @@ class RocketProblem(Problem):
             out.m = float(new_line[4])
             out.mw = float(new_line[5])
             if out.m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.condensed = False
               out.m = out.mw
+            else:
+              out.condensed = True # has condensed phase products
             out.cp = float(new_line[6])
             out.gammas = float(new_line[7])
             out.rho = float(new_line[10])

@@ -11,7 +11,7 @@ def open_thermo_lib():
     Opens the attached thermo library input file using the user's default .inp file viewer (should prompt if none)
   """
   print("Opening user manuals using default .inp file viewer")
-  return os.system(_get_asset("thermo_spg.inp"))
+  os.system(_get_asset("thermo_spg.inp"))
 
 def open_pdfs():
   """
@@ -25,6 +25,6 @@ def print_assets_directory():
   """
     Just prints the directory where resources are
   """
-  var = _get_asset("FCEA2.exe")
+  var = os.path.dirname(_get_asset("FCEA2.exe"))
   print(var)
   return var

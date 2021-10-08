@@ -16,6 +16,15 @@ Examples on basic use can be found in the "examples" directory.
 Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 
 # Documentation
+## Utilities
+  ```open_thermo_lib()```
+  Opens the default thermo library input file using the user's default .inp file viewer (should prompt if none)
+  
+  ```open_pdfs()```
+  Opens the attached NASA pdfs using the user's default pdf viewer
+  
+  ```print_assets_directory()```
+  Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
 
 ## Specifying Materials
   In order to run problems, you must create materials. Materials must be either Fuel or Oxidizer (F or O) objects
@@ -181,7 +190,7 @@ In addition, all product dictionaries are also "Output" objects so to get H2O co
 * \*dLV_dLP_t - (dLV/dLP)t, multiply gammas by negative this to convert isentropic gamma to real gamma
   * \*t_dLV_dLP_t - throat
   * \*c_dLV_dLP_t - chamber
-* \*dLV_dLT_p - (dLV/dLT)p
+* \*dLV_dLT_p - (dLV/dLT)p, see the Mathematical Analysis in CEA_Wrap/assets for explanation
   * \*t_dLV_dLT_p - throat
   * \*c_dLV_dLT_p - chamber
 * cstar - characteristic velocity in chamber, m/s

@@ -10,6 +10,12 @@ class _Meta(type):
     
   def __contains__(self, name): # Allows "CH4" in ThermoInterface
     return name in self.thermo_materials
+    
+  def __iter__(self): # Allows list(ThermoInterface)
+    return iter(self.thermo_materials)
+    
+  def __len__(self):
+    return len(self.thermo_materials)
 
 class ThermoInterface(metaclass=_Meta):
   """
@@ -22,13 +28,20 @@ class ThermoInterface(metaclass=_Meta):
   @classmethod
   def load(self):
     self.thermo_materials = load_thermo_file()
+    
+  @classmethod
+  def keys(self): return self.thermo_materials.keys()
+  @classmethod
+  def values(self): return self.thermo_materials.values()
+  @classmethod
+  def items(self): return self.thermo_materials.items()
   
   @classmethod
   def get_close_matches(self, name, n=6):
     n1 = int(n/2) # round down
     n2 = int(round(n/2,0)) # round up
     name_list = list(self.thermo_materials) # maintain ordering for indexing
-    # Get matches for the material itself. Matches things like "CH3" --> "CH4" or "Al(cr)" --> "AL(cr)"
+    # Get matches for the material itself. Matches things like "CH5" --> "CH4" or "Al(cr)" --> "AL(cr)"
     close_matches1 = difflib.get_close_matches(name, name_list, n=n1)
     # Then get matches for partially filled names. Matches things like "C8H18" --> "C8H18,isohexalate" or whatever
     close_matches2_ind = close_match_index(name, list(map(lambda x: x[:len(name)], name_list)), n=n2)

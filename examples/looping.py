@@ -23,7 +23,22 @@ m_list = [aluminum, htpb, ap] # for convenience so I can pass it into all proble
 problem = RocketProblem(materials=m_list)
 problem.set_absolute_o_f() # have it calculate o_f for us from material percentage
 
-## Example 1: Using standard python arrays
+## Example 1: Using DataCollector objects (Recommended)
+print("Running Data Collector Case")
+pressures = np.linspace(1000, 2000, 25) # pressures from 1000 to 2000
+collector = DataCollector("c_t") # want to collect chamber temperature
+for pressure in pressures:
+  problem.set_pressure(pressure)
+  collector.add_data(problem.run()) # adds all desired variables to collector
+  
+plt.plot(pressures, collector.c_t) # could also do collector["c_t"] for the same effect
+plt.title("Collector Pressure vs Temperature")
+plt.xlabel("Pressure (psi)")
+plt.ylabel("Chamber Temperature (K)")
+plt.show()
+
+
+## Example 2: Using standard python arrays
 print("Running Python Array Case")
 pressures = [1000 + i*40 for i in range(25)] # pressures from 1000 to 2000
 temperatures = []
@@ -39,7 +54,7 @@ plt.ylabel("Chamber Temperature (K)")
 plt.show()
 
 
-## Example 2: Using numpy arrays
+## Example 3: Using numpy arrays
 print("Running Numpy Array Case")
 arr_size = 25 # 25 runs of CEA
 pressures = np.linspace(1000, 2000, arr_size) # pressures from 1000 to 2000
@@ -51,21 +66,6 @@ for i, pressure in enumerate(pressures):
 
 plt.plot(pressures, temperatures)
 plt.title("Numpy Pressure vs Temperature")
-plt.xlabel("Pressure (psi)")
-plt.ylabel("Chamber Temperature (K)")
-plt.show()
-
-
-## Example 3: Using DataCollector objects
-print("Running Data Collector Case")
-pressures = np.linspace(1000, 2000, 25) # pressures from 1000 to 2000
-collector = DataCollector("c_t") # want to collect chamber temperature
-for pressure in pressures:
-  problem.set_pressure(pressure)
-  collector.add_data(problem.run()) # adds all desired variables to collector
-  
-plt.plot(pressures, collector.c_t) # could also do collector["c_t"] for the same effect
-plt.title("Collector Pressure vs Temperature")
 plt.xlabel("Pressure (psi)")
 plt.ylabel("Chamber Temperature (K)")
 plt.show()

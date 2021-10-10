@@ -1,5 +1,6 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
+import numpy as np
 from zlib import crc32
 from .utils import _get_asset, Output
 from .thermo_lib import ThermoInterface
@@ -273,6 +274,7 @@ class Problem:
     return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
   
   def process_output(self):
+    # Process Plot file
     out = Output()
     try:
       with open(self.filename+".plt", errors='ignore') as file:
@@ -303,8 +305,8 @@ class DetonationProblem(Problem):
     return "\n".join(toRet) + "\n"
 
   def process_output(self):
-    out = super().process_output() # Process the plt file first
-
+    out = Output()
+    
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
     with open(self.filename+".out") as file:
       # Ordered (in the file) list of terms that we're searching for
@@ -371,6 +373,9 @@ class DetonationProblem(Problem):
               in_search_area = False
               continue
     
+    outPlt = super().process_output() # Process the plt file second so we can read errors listed in output file
+    out.update(outPlt)
+    
     # Also include the actual gamma and not just the isentropic gamma
     out.gamma = out.gammas*-out.dLV_dLP_t
     
@@ -387,8 +392,8 @@ class HPProblem(Problem):
     return "\n".join(toRet) + "\n"
   
   def process_output(self):
-    out = super().process_output() # Process the plt file first
-  
+    out = Output()
+    
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
     with open(self.filename+".out") as file:
       # Ordered (in the file) list of terms that we're searching for
@@ -444,6 +449,9 @@ class HPProblem(Problem):
               in_search_area = False
               continue
     
+    outPlt = super().process_output() # Process the plt file second so we can read errors listed in output file
+    out.update(outPlt)
+    
     # Also include the actual gamma and not just the isentropic gamma
     out.gamma = out.gammas*-out.dLV_dLP_t
     
@@ -487,80 +495,7 @@ class RocketProblem(Problem):
   
   def process_output(self):
     out = Output()
-    try:
-      with open(self.filename+".plt", errors='ignore') as file:
-        for counter, line in enumerate(file):
-          new_line = line.split()
-          if counter == 0:
-            continue
-          elif  counter == 1: # chamber properties
-            # Values common to all
-            out.o_f = float(new_line[8])
-            out.phi = float(new_line[13])
-            
-            # Section Properties 
-            out.c_p = float(new_line[0])
-            out.c_t = float(new_line[1])
-            out.c_m = float(new_line[4])
-            out.c_mw = float(new_line[5])
-            if out.c_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
-              out.c_condensed = False
-              out.c_m = out.c_mw
-            else:
-              out.c_condensed = True # has condensed phase products
-            out.c_cp = float(new_line[6])
-            out.c_gammas = float(new_line[7])
-            out.c_rho = float(new_line[10])
-            out.c_son = float(new_line[11])
-            out.c_h = float(new_line[14])
-          elif counter == 2: # throat properties
-            # Throat/Nozzle Values
-            out.t_isp = float(new_line[2])/9.81
-            out.t_ivac = float(new_line[3])/9.81
-            out.t_cf = float(new_line[9])
-            
-            # Section Properties  
-            out.t_p = float(new_line[0])
-            out.t_t = float(new_line[1])
-            out.t_m = float(new_line[4])
-            out.t_mw = float(new_line[5])
-            if out.t_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
-              out.t_condensed = False
-              out.t_m = out.t_mw
-            else:
-              out.t_condensed = True # has condensed phase products
-            out.t_cp = float(new_line[6])
-            out.t_gammas = float(new_line[7])
-            out.t_rho = float(new_line[10])
-            out.t_son = float(new_line[11])
-            out.t_h = float(new_line[14])
-          elif counter == 3: # noz properties
-            # Exit-only values
-            out.mach = float(new_line[12])
-            
-            # Throat/Nozzle Values
-            out.isp = float(new_line[2])/9.81
-            out.ivac = float(new_line[3])/9.81
-            out.cf = float(new_line[9])
-            
-            # Section Properties  
-            out.p = float(new_line[0])
-            out.t = float(new_line[1])
-            out.m = float(new_line[4])
-            out.mw = float(new_line[5])
-            if out.m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
-              out.condensed = False
-              out.m = out.mw
-            else:
-              out.condensed = True # has condensed phase products
-            out.cp = float(new_line[6])
-            out.gammas = float(new_line[7])
-            out.rho = float(new_line[10])
-            out.son = float(new_line[11])
-            out.h = float(new_line[14])
-    except FileNotFoundError:
-      raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
-            
+    
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
     with open(self.filename+".out") as file:
       # Ordered (in the file) list of terms that we're searching for
@@ -651,6 +586,81 @@ class RocketProblem(Problem):
               elif key == "Isp,":
                 out.t_isp = float(split[2])/9.81
                 out.isp = float(split[3])/9.81
+    
+    try:
+      with open(self.filename+".plt", errors='ignore') as file:
+        for counter, line in enumerate(file):
+          new_line = line.split()
+          if counter == 0:
+            continue
+          elif  counter == 1: # chamber properties
+            # Values common to all
+            out.o_f = float(new_line[8])
+            out.phi = float(new_line[13])
+            
+            # Section Properties 
+            out.c_p = float(new_line[0])
+            out.c_t = float(new_line[1])
+            out.c_m = float(new_line[4])
+            out.c_mw = float(new_line[5])
+            if out.c_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.c_condensed = False
+              out.c_m = out.c_mw
+            else:
+              out.c_condensed = True # has condensed phase products
+            out.c_cp = float(new_line[6])
+            out.c_gammas = float(new_line[7])
+            out.c_rho = float(new_line[10])
+            out.c_son = float(new_line[11])
+            out.c_h = float(new_line[14])
+          elif counter == 2: # throat properties
+            # Throat/Nozzle Values
+            out.t_isp = float(new_line[2])/9.81
+            out.t_ivac = float(new_line[3])/9.81
+            out.t_cf = float(new_line[9])
+            
+            # Section Properties  
+            out.t_p = float(new_line[0])
+            out.t_t = float(new_line[1])
+            out.t_m = float(new_line[4])
+            out.t_mw = float(new_line[5])
+            if out.t_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.t_condensed = False
+              out.t_m = out.t_mw
+            else:
+              out.t_condensed = True # has condensed phase products
+            out.t_cp = float(new_line[6])
+            out.t_gammas = float(new_line[7])
+            out.t_rho = float(new_line[10])
+            out.t_son = float(new_line[11])
+            out.t_h = float(new_line[14])
+          elif counter == 3: # noz properties
+            # Exit-only values
+            out.mach = float(new_line[12])
+            
+            # Throat/Nozzle Values
+            out.isp = float(new_line[2])/9.81
+            out.ivac = float(new_line[3])/9.81
+            out.cf = float(new_line[9])
+            
+            # Section Properties  
+            out.p = float(new_line[0])
+            out.t = float(new_line[1])
+            out.m = float(new_line[4])
+            out.mw = float(new_line[5])
+            if out.m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.condensed = False
+              out.m = out.mw
+            else:
+              out.condensed = True # has condensed phase products
+            out.cp = float(new_line[6])
+            out.gammas = float(new_line[7])
+            out.rho = float(new_line[10])
+            out.son = float(new_line[11])
+            out.h = float(new_line[14])
+    except FileNotFoundError:
+      raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
+            
 
     if "frozen" in self.analysis_type:
       # We don't get mole fractions in the other positions for frozen
@@ -666,40 +676,81 @@ class RocketProblem(Problem):
 
     return out
 
+def _mutually_exclusive(*args):
+  join_set = set()
+  for arg in args:
+    # First if this contains any elements that were in previous
+    if not join_set.isdisjoint(arg):
+      return False
+    # Then update the current list of existing keys
+    join_set.update(arg)
+  return True # If none are combined, pass
+
 class DataCollector(Output):
-  def __init__(self, *args, keys=[], chamber_keys=[], exit_keys=[]):
+  def __init__(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[]):
     if len(args) > 0:
       if keys:
         raise TypeError("Data_Collector should not receive both a list of arguments and the 'keys' keyword")
       keys = list(args)
-    self._prototype = list
     self._add_element = list.append
     self._keys = keys
     self._chamber_keys = chamber_keys
+    self._throat_keys = throat_keys
     self._exit_keys = exit_keys
     
-    if set(chamber_keys).intersection(exit_keys):
-      raise ValueError("Can't have product keys in both chamber and exit")
+    if not _mutually_exclusive(chamber_keys, throat_keys, exit_keys):
+      raise ValueError("Can't have product keys in multiple keys arrays")
       
-    if not all([isinstance(val, str) for val in self._keys + self._chamber_keys + self._exit_keys]):
+    if not all([isinstance(val, str) for val in keys + chamber_keys + throat_keys + exit_keys]):
       raise ValueError("All Data_Collector keys must be strings")
       
-    for key in keys + chamber_keys + exit_keys:
-      self[key] = self._prototype([])
-    
+    for key in keys + chamber_keys + throat_keys + exit_keys:
+      self[key] = list()
+  
   def add_data(self, data):
-    for key in self._keys:
-      self._add_element(self[key], data[key])
-    for key in self._chamber_keys: # First go through chamber products
+    def try_add(key, inner):
       try:
-        self._add_element(self[key], data.prod_c[key])
+        self[key].append(data[inner][key])
       except KeyError:
         self[key].append(0)
+  
+    for key in self._keys:
+      self[key].append(data[key])
+    for key in self._chamber_keys: # First go through chamber products
+      try_add(key, "prod_c")
+    for key in self._throat_keys: # Then go through throat products
+      try_add(key, "prod_t")
     for key in self._exit_keys: # Then go through exit products
+      try_add(key, "prod_e")
+        
+class NumpyDataCollector(DataCollector):
+  def __init__(self, shape, *args, **kwargs):
+    if not isinstance(shape, (list, tuple)):
+      raise ValueError("shape parameter to NumpyDataCollector must be tuple of output shape")
+    self._shape = shape
+    
+    super().__init__(*args, **kwargs)
+    
+    # Then we replace all the empty lists with zero-initialized arrays
+    for key in self:
+      self[key] = np.zeros(shape)
+      
+  def add_data(self, index, data):
+    # index must be either the index for a 1-D array or a tuple for multi-dimensional arrays
+    def try_add(key, inner):
       try:
-        self._add_element(self[key], data.prod_e[key])
+        self[key][index] = data[inner][key]
       except KeyError:
-        self._add_element(self[key], 0)
+        self[key][index] = 0
+  
+    for key in self._keys:
+      self[key][index] = data[key]
+    for key in self._chamber_keys: # First go through chamber products
+      try_add(key, "prod_c")
+    for key in self._throat_keys: # Then go through throat products
+      try_add(key, "prod_t")
+    for key in self._exit_keys: # Then go through exit products
+      try_add(key, "prod_e")
 
 if __name__ == "__main__":
   # Example: Set up a simple Water + Peroxide reaction

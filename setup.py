@@ -64,7 +64,7 @@ setuptools.setup( name='CEA_Wrap',
                   author='Daniel Klinger',
                   author_email='klingerd@purdue.edu',
                   license_files=["LICENSE"],
-                  install_requires=[],
+                  install_requires=["numpy"],
                   packages=setuptools.find_packages(),
                   python_requires=">=3.6",
                   include_package_data=True, # Add in pdfs and executables defined in the manifest

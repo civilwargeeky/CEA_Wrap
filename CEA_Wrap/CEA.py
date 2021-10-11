@@ -1,6 +1,5 @@
 import subprocess, re, os.path, shutil
 import importlib.resources, platform
-import numpy as np
 from zlib import crc32
 from .utils import _get_asset, Output
 from .thermo_lib import ThermoInterface
@@ -722,35 +721,41 @@ class DataCollector(Output):
       try_add(key, "prod_t")
     for key in self._exit_keys: # Then go through exit products
       try_add(key, "prod_e")
-        
-class NumpyDataCollector(DataCollector):
-  def __init__(self, shape, *args, **kwargs):
-    if not isinstance(shape, (list, tuple)):
-      raise ValueError("shape parameter to NumpyDataCollector must be tuple of output shape")
-    self._shape = shape
-    
-    super().__init__(*args, **kwargs)
-    
-    # Then we replace all the empty lists with zero-initialized arrays
-    for key in self:
-      self[key] = np.zeros(shape)
+
+try:
+  import numpy as np
+  class NumpyDataCollector(DataCollector):
+    def __init__(self, shape, *args, **kwargs):
+      if not isinstance(shape, (list, tuple)):
+        raise ValueError("shape parameter to NumpyDataCollector must be tuple of output shape")
+      self._shape = shape
       
-  def add_data(self, index, data):
-    # index must be either the index for a 1-D array or a tuple for multi-dimensional arrays
-    def try_add(key, inner):
-      try:
-        self[key][index] = data[inner][key]
-      except KeyError:
-        self[key][index] = 0
-  
-    for key in self._keys:
-      self[key][index] = data[key]
-    for key in self._chamber_keys: # First go through chamber products
-      try_add(key, "prod_c")
-    for key in self._throat_keys: # Then go through throat products
-      try_add(key, "prod_t")
-    for key in self._exit_keys: # Then go through exit products
-      try_add(key, "prod_e")
+      super().__init__(*args, **kwargs)
+      
+      # Then we replace all the empty lists with zero-initialized arrays
+      for key in self:
+        self[key] = np.zeros(shape)
+        
+    def add_data(self, index, data):
+      # index must be either the index for a 1-D array or a tuple for multi-dimensional arrays
+      def try_add(key, inner):
+        try:
+          self[key][index] = data[inner][key]
+        except KeyError:
+          self[key][index] = 0
+    
+      for key in self._keys:
+        self[key][index] = data[key]
+      for key in self._chamber_keys: # First go through chamber products
+        try_add(key, "prod_c")
+      for key in self._throat_keys: # Then go through throat products
+        try_add(key, "prod_t")
+      for key in self._exit_keys: # Then go through exit products
+        try_add(key, "prod_e")
+except ImportError:
+  import warnings
+  warnings.warn("Numpy is not installed, 'NumpyDataCollector' module will not be available")
+
 
 if __name__ == "__main__":
   # Example: Set up a simple Water + Peroxide reaction

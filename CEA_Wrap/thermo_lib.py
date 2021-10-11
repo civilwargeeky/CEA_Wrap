@@ -134,8 +134,8 @@ def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
   after_air = False # All materials after and including Air may only be defined as reactants (they don't show up in products)
   # Source: The CEA specification
   
-  print("Processing {} thermo input file".format(os.path.basename(filename)))
-  start_time = time()
+  #print("Processing {} thermo input file".format(os.path.basename(filename)))
+  #start_time = time()
   
   with open(filename) as file:
     cur_mat_lines = []
@@ -158,8 +158,8 @@ def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
           break
       # Regardless of whether we are at definition line or not
       cur_mat_lines.append(line)
-  elapsed = time() - start_time
-  print("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
+  #elapsed = time() - start_time
+  #print("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
   return materials
 
 

@@ -237,5 +237,5 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
 * `reactant_only` - True if material only shows up in reactants, False otherwise
 
 ### Available Methods
-* `ThermoInterface.get_close_methods(name, [n])` - Gets close matches to a given material name. For example "Al(cr)" returns 'AL(cr)', 'ALN(cr)', 'Ag(cr)', 'W(cr)'. n influences the number of results returned, and is the maximum number of results returned.
+* `ThermoInterface.get_close_matches(name, [n])` - Gets close matches to a given material name. For example "Al(cr)" returns 'AL(cr)', 'ALN(cr)', 'Ag(cr)', 'W(cr)'. n influences the number of results returned, and is the maximum number of results returned.
 * `ThermoMaterial.defined_at(temp)` - Returns True if the material is specified at the given temperature, False otherwise. Materials specified at one temperature are actually allowed at that temperature +- 10K.

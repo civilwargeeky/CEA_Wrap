@@ -151,7 +151,7 @@ class Problem:
           raise ValueError(f"specified element '{material}' does not exist in package thermo library\n" +
                            f"Change name or set {__package__}.{__class__}.check_against_thermo_inp to False\n"+
                            f"Material '{material}' {len(close_matches)} closest matches: \"" + '", "'.join(close_matches)+'"')
-    return " ".join(inputList) # return to space-separated form
+    return inputList
     
   # All arguments must be specified by keyword
   def __init__(self, *, 
@@ -160,8 +160,8 @@ class Problem:
         massf=False, # mass fractions or mol fractions in output
         filename="my_output", # The file to be used for .inp/.out/.plt files
         pressure_units="psi", # units for pressure
-        inserts=None, # space-separated string of inserts
-        omits=None, # space-separated string of omits
+        inserts=None, # space-separated string or list of inserts
+        omits=None, # space-separated string or list of omits
         **kwargs
       ):
       
@@ -193,7 +193,7 @@ class Problem:
   def set_materials(self, materials): self.materials = materials
   def set_massf(self, massf): self.massf = massf
   def set_inserts(self, inserts): self.inserts = self._format_input_list(inserts)
-  def set_omits(self, omits): self.inserts = self._format_input_list(omits)
+  def set_omits(self, omits): self.omits = self._format_input_list(omits)
 
   def set_filename(self, filename): 
     if ".inp" in filename or "/" in filename: # Must be a string of alphanumeric characters

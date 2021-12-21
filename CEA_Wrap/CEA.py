@@ -1,4 +1,5 @@
 import subprocess, re
+import logging
 import platform
 from .utils import _get_data_file, cleanup_package_install, move_file_if_changed, Output
 from .thermo_lib import ThermoInterface
@@ -16,8 +17,8 @@ try:
     pack_file = _get_data_file(file)
     move_file_if_changed(file, pack_file)
 except PermissionError as e:
-  print("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
-  print("---- Is your current directory system32 or another protected directory? ----")
+  logging.error("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
+  logging.error("---- Is your current directory system32 or another protected directory? ----")
   raise e from None
 
 # Load our interface to all the ThermoMaterials
@@ -107,7 +108,7 @@ O = Oxidizer # Alias
 def run_cea_backend(filename):
   ret = subprocess.run(CEA_LOCATION, input=filename+"\n", text=True, stdout=subprocess.DEVNULL)
   if ret.returncode != 0:
-    print(ret)
+    logging.error(ret)
     raise RuntimeError("Running CEA failed with errors")
   return ret
   

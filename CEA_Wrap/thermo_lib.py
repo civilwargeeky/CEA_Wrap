@@ -1,4 +1,5 @@
 import re, os.path
+import logging
 from time import time
 import difflib # for nearby element matches
 from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
@@ -134,8 +135,8 @@ def load_thermo_file(filename = _get_data_file("thermo_spg.inp")):
   after_air = False # All materials after and including Air may only be defined as reactants (they don't show up in products)
   # Source: The CEA specification
   
-  #print("Processing {} thermo input file".format(os.path.basename(filename)))
-  #start_time = time()
+  logging.debug("Processing {} thermo input file".format(os.path.basename(filename)))
+  start_time = time()
   
   with open(filename) as file:
     cur_mat_lines = []
@@ -158,8 +159,8 @@ def load_thermo_file(filename = _get_data_file("thermo_spg.inp")):
           break
       # Regardless of whether we are at definition line or not
       cur_mat_lines.append(line)
-  #elapsed = time() - start_time
-  #print("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
+  elapsed = time() - start_time
+  logging.debug("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
   return materials
 
 

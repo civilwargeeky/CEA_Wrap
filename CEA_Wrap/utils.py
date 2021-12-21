@@ -1,4 +1,5 @@
 import importlib.resources, os, shutil
+import logging
 import appdirs
 from zlib import crc32
 
@@ -118,20 +119,31 @@ def cleanup_package_install():
   try:
     asset_dir = _get_asset("")
   except ModuleNotFoundError: # Raises this if directory doesn't exist
+    log.debug("Assets directory doesn't exist")
     return False
   data_dir = _get_data_file("")
   if os.path.isdir(asset_dir):
+    log.info("Performing first-time setup: package assets directory exists, moving files to data directory")
+    log.debug("Package Dir: " + asset_dir)
+    log.debug("Data Dir:    " + data_dir)
     if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
+      log.debug("Data directory didn't exist")
       os.makedirs(data_dir)
     for file in os.listdir(asset_dir):
       if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
         continue
       src_path = os.path.join(asset_dir, file)
       dst_path = os.path.join(data_dir, file)
+      log.info("Checking file: " + file)
+      log.debug(src_path + " ==> " + dst_path)
       if not os.path.exists(dst_path): # If we don't already have a copy of this file
+        log.debug("Copying file")
         shutil.copy2(src_path, dst_path) # Copy it
+      log.debug("Deleting file")
       os.remove(src_path) # Regardless, remove the assets copy
+    log.info("Removing assets directory")
     shutil.rmtree(asset_dir) # Remove the assets directory when done
+    return True
   else:
     return False # Nothing was changed because folder doesn't exist
 
@@ -143,11 +155,11 @@ def move_file_if_changed(file, pack_file):
       pack_hash = crc32(f1.read())
       local_hash = crc32(f2.read())
     if pack_hash != local_hash: 
-      print(file+" hash does not match package file hash! Updating local file with one from package")
+      logging.info(file+" hash does not match package file hash! Updating local file with one from package")
       shutil.copyfile(pack_file, file)
   else:
     # If not here, copy it from package
-    print(file+" not found in current directory. Copying from package to current directory...")
+    logging.info(file+" not found in current directory. Copying from package to current directory...")
     shutil.copyfile(pack_file, file)
 
 def open_thermo_lib():

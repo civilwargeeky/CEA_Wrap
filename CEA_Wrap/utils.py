@@ -1,4 +1,6 @@
-import importlib.resources, os.path
+import importlib.resources, os, shutil
+import appdirs
+from zlib import crc32
 
 class Output(dict): # This is just a dictionary that you can also use dot notation to access
   def __init__(self): # Explicitly must receive no arguments, because I don't want to deal with constructor properties
@@ -98,26 +100,75 @@ def _get_asset(file):
   #   However, this package is not zip-safe so we just return the location
   with importlib.resources.path(__package__+".assets", file) as manager:
     return str(manager)
+    
+def _get_data_file(file):
+  # Returns a file location in our data directory
+  return os.path.join(appdirs.user_data_dir(__package__, False), file)
+
+def cleanup_package_install():
+  """
+  Cleans up directory structure after install.
+  Expected process:
+  1st run: There is no AppData folder, all assets are in site-packages\CEA_Wrap\assets folder
+           We create AppData\Local\CEA_Wrap and move all our assets there.
+           We delete site-packages\CEA_Wrap\assets
+  Subsequent runs: We check that the site-packages\CEA_Wrap\assets folder exists and it doesn't so we don't change anything
+  Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement, so user thermo_spg.inp files are saved, but any missing assets are added
+  """
+  try:
+    asset_dir = _get_asset("")
+  except ModuleNotFoundError: # Raises this if directory doesn't exist
+    return False
+  data_dir = _get_data_file("")
+  if os.path.isdir(asset_dir):
+    if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
+      os.makedirs(data_dir)
+    for file in os.listdir(asset_dir):
+      if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
+        continue
+      src_path = os.path.join(asset_dir, file)
+      dst_path = os.path.join(data_dir, file)
+      if not os.path.exists(dst_path): # If we don't already have a copy of this file
+        shutil.copy2(src_path, dst_path) # Copy it
+      os.remove(src_path) # Regardless, remove the assets copy
+    shutil.rmtree(asset_dir) # Remove the assets directory when done
+  else:
+    return False # Nothing was changed because folder doesn't exist
+
+def move_file_if_changed(file, pack_file):
+  # file is the local destination, pack_file is the master location
+  if os.path.isfile(file):
+    # If the file is here, we check the hash of it against the package one
+    with open(pack_file, "rb") as f1, open(file, "rb") as f2:
+      pack_hash = crc32(f1.read())
+      local_hash = crc32(f2.read())
+    if pack_hash != local_hash: 
+      print(file+" hash does not match package file hash! Updating local file with one from package")
+      shutil.copyfile(pack_file, file)
+  else:
+    # If not here, copy it from package
+    print(file+" not found in current directory. Copying from package to current directory...")
+    shutil.copyfile(pack_file, file)
 
 def open_thermo_lib():
   """
     Opens the attached thermo library input file using the user's default .inp file viewer (should prompt if none)
   """
   print("Opening user manuals using default .inp file viewer")
-  os.system(_get_asset("thermo_spg.inp"))
+  os.system(_get_data_file("thermo_spg.inp"))
 
 def open_pdfs():
   """
     Opens the attached NASA pdfs using the user's default pdf viewer
   """
   print("Opening user manuals using default pdf viewer")
-  os.system('"'+_get_asset("CEA_Mathematical_Analysis.pdf")+'"')
-  os.system('"'+_get_asset("CEA_Users_Manual_and_Program_Description.pdf")+'"')
+  os.system('"'+_get_data_file("CEA_Mathematical_Analysis.pdf")+'"')
+  os.system('"'+_get_data_file("CEA_Users_Manual_and_Program_Description.pdf")+'"')
   
 def print_assets_directory():
   """
     Just prints the directory where resources are
   """
-  var = os.path.dirname(_get_asset("FCEA2.exe"))
+  var = os.path.dirname(_get_data_file("FCEA2.exe"))
   print(var)
   return var

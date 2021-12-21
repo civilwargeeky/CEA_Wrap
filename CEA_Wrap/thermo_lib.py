@@ -2,7 +2,7 @@ import re, os.path
 from time import time
 import difflib # for nearby element matches
 from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
-from .utils import _get_asset, Output
+from .utils import _get_data_file, Output
 
 class _Meta(type):
   def __getitem__(cls, name): # Allows ThermoInterface["CH4"]
@@ -76,7 +76,7 @@ class ThermoMaterial(Output):
         return True
     return False
 
-def load_thermo_file(filename = _get_asset("thermo_spg.inp")):
+def load_thermo_file(filename = _get_data_file("thermo_spg.inp")):
   """
     Loads the thermo input file at filename
     Returns a dictionary of name: ThermoMaterial representing the material

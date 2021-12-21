@@ -1,28 +1,20 @@
-import subprocess, re, os.path, shutil
-import importlib.resources, platform
-from zlib import crc32
-from .utils import _get_asset, Output
+import subprocess, re
+import platform
+from .utils import _get_data_file, cleanup_package_install, move_file_if_changed, Output
 from .thermo_lib import ThermoInterface
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
-CEA_LOCATION = _get_asset(_BASE_CEA)
+CEA_LOCATION = _get_data_file(_BASE_CEA)
+
+# The first time we install from source, we need to move our files from the ".assets" directory to our data directory
+# This function checks if the assets directory still exists, and if so, will try to copy files to it.
+cleanup_package_install()
 
 try:
   for file in ["thermo.lib", "trans.lib"]:
-    if os.path.isfile(file):
-      # If the file is here, we check the hash of it against the package one
-      pack_file = _get_asset(file)
-      with open(pack_file, "rb") as f1, open(file, "rb") as f2:
-        pack_hash = crc32(f1.read())
-        local_hash = crc32(f2.read())
-      if pack_hash != local_hash: 
-        print(file+" hash does not match package file hash! Updating local file with one from package")
-        shutil.copyfile(pack_file, file)
-    else:
-      # If not here, copy it from package
-      print(file+" not found in current directory. Copying from package to current directory...")
-      shutil.copyfile(_get_asset(file), file)
+    pack_file = _get_data_file(file)
+    move_file_if_changed(file, pack_file)
 except PermissionError as e:
   print("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
   print("---- Is your current directory system32 or another protected directory? ----")

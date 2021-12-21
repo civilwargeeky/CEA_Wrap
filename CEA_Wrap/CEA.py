@@ -1,6 +1,7 @@
 import subprocess, re
 import logging
 import platform
+from typing import List, Union
 from .utils import _get_data_file, cleanup_package_install, move_file_if_changed, Output
 from .thermo_lib import ThermoInterface
 
@@ -30,7 +31,7 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True 
   
-  def __init__(self, name, temp=298, wt_percent=None, mols=None, chemical_composition = None, hf = None):
+  def __init__(self, name, temp:float=298, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
       wt_percent = 100
     
@@ -58,26 +59,26 @@ class Material:
     if wt_percent and mols:
       raise TypeError("Material cannot have both wt_percent and mols specified")
   
-  def set_wt_percent(self, wt_percent):
+  def set_wt_percent(self, wt_percent:float):
     self.mols = None # Can only have one
     self.wt_percent = wt_percent
   
-  def set_mols(self, mols):
+  def set_mols(self, mols:float):
     self.wt_percent = None # Can only have one
     self.mols = mols
     
-  def set_temp(self, temp): 
-    if self.check_against_thermo_inp and not self.thermo_materials[name].defined_at(temp):
-      raise ValueError(f"specified material '{name}' does not exist at temperature {temp:0.2f}")
+  def set_temp(self, temp:float):
+    if self.check_against_thermo_inp and not ThermoInterface[self.name].defined_at(temp):
+      raise ValueError(f"specified material '{self.name}' does not exist at temperature {temp:0.2f}")
     self.temp=temp
     
-  def is_mols(self): # Helper function for a material being in wt_percent or mols
+  def is_mols(self) -> bool: # Helper function for a material being in wt_percent or mols
     return self.mols is not None
     
-  def is_wt_percent(self): # Helper function for a material being in wt_percent or mols
+  def is_wt_percent(self) -> bool: # Helper function for a material being in wt_percent or mols
     return self.wt_percent is not None
     
-  def get_CEA_str(self):
+  def get_CEA_str(self) -> str:
     # Specify whether to use the str/val for weight or mols.
     name, ratio = "wt" if self.wt_percent is not None else "mol", self.wt_percent if self.wt_percent is not None else self.mols
     if ratio < 0:
@@ -105,7 +106,7 @@ O = Oxidizer # Alias
 
 ## Plan: Can also have composite Fuel/Oxidizer made up of percentages of other components
 
-def run_cea_backend(filename):
+def run_cea_backend(filename:str):
   ret = subprocess.run(CEA_LOCATION, input=filename+"\n", text=True, stdout=subprocess.DEVNULL)
   if ret.returncode != 0:
     logging.error(ret)
@@ -152,16 +153,16 @@ class Problem:
     return inputList
     
   # All arguments must be specified by keyword
-  def __init__(self, *, 
-        pressure=1000, # Chamber/operation pressure
-        materials=None, # List of Material objects
-        massf=False, # mass fractions or mol fractions in output
-        filename="my_output", # The file to be used for .inp/.out/.plt files
-        pressure_units="psi", # units for pressure
-        inserts=None, # space-separated string or list of inserts
-        omits=None, # space-separated string or list of omits
-        **kwargs
-      ):
+  def __init__(self, *,
+               pressure: float=1000,  # Chamber/operation pressure
+               materials: List[Material]=None,  # List of Material objects
+               massf: bool=False,  # mass fractions or mol fractions in output
+               filename: str="my_output",  # The file to be used for .inp/.out/.plt files
+               pressure_units: str="psi",  # units for pressure
+               inserts: Union[str, List[Union[str, Material]]]=None,  # space-separated string or list of inserts
+               omits:   Union[str, List[Union[str, Material]]]=None,  # space-separated string or list of omits
+               **kwargs
+               ):
       
     self.massf = massf
     self.materials = materials
@@ -181,31 +182,31 @@ class Problem:
     if diff: # If there are any kwargs keys that aren't in _ratio_options keys, we should error
       raise TypeError(self.__class__.__name__+"() got an unexpected keyword argument(s): " + ",".join(diff))
     
-  def set_p_f(self, p_f): self._set_fuel_ratio(p_f=p_f)
-  def set_f_o(self, f_o): self._set_fuel_ratio(f_o=f_o)
-  def set_o_f(self, o_f): self._set_fuel_ratio(o_f=o_f)
-  def set_phi(self, phi): self._set_fuel_ratio(phi=phi)
-  def set_r_eq(self, r_eq): self._set_fuel_ratio(r_eq=r_eq)
+  def set_p_f(self, p_f: float): self._set_fuel_ratio(p_f=p_f)
+  def set_f_o(self, f_o: float): self._set_fuel_ratio(f_o=f_o)
+  def set_o_f(self, o_f: float): self._set_fuel_ratio(o_f=o_f)
+  def set_phi(self, phi: float): self._set_fuel_ratio(phi=phi)
+  def set_r_eq(self, r_eq: float): self._set_fuel_ratio(r_eq=r_eq)
   
-  def set_pressure(self, pressure): self.pressure = pressure
-  def set_materials(self, materials): self.materials = materials
-  def set_massf(self, massf): self.massf = massf
-  def set_inserts(self, inserts): self.inserts = self._format_input_list(inserts)
-  def set_omits(self, omits): self.omits = self._format_input_list(omits)
+  def set_pressure(self, pressure: float): self.pressure = pressure
+  def set_materials(self, materials: List[Material]): self.materials = materials
+  def set_massf(self, massf: bool): self.massf = massf
+  def set_inserts(self, inserts: Union[str, List[Union[str, Material]]]): self.inserts = self._format_input_list(inserts)
+  def set_omits(self, omits: Union[str, List[Union[str, Material]]]): self.omits = self._format_input_list(omits)
 
-  def set_filename(self, filename): 
+  def set_filename(self, filename: str):
     if ".inp" in filename or "/" in filename: # Must be a string of alphanumeric characters
       raise ValueError("Cannot save to filename with .inp or / in it")
     self.filename = filename
   
-  def set_pressure_units(self, pressure_units):
+  def set_pressure_units(self, pressure_units: str):
     pressure_units = pressure_units.lower() # We only have a few options for pressure units
     choices = ["bar", "atm", "psi", "mmh"]
     if pressure_units not in choices:
       raise ValueError("pressure unit must be in " + ", ".join(choices))
     self.pressure_units = pressure_units
   
-  def set_absolute_o_f(self):
+  def set_absolute_o_f(self) -> float:
     # Set an o_f ratio assuming that the wt_percent of each of our materials is an absolute percentage
     sum_ox   = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Oxidizer), self.materials)])
     sum_fuel = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Fuel), self.materials)])
@@ -213,7 +214,7 @@ class Problem:
     self.set_o_f(o_f)
     return o_f
   
-  def run(self, *materials):
+  def run(self, *materials) -> Output:
     if self.ratio_name == None:
       raise TypeError("No reactant ratio specified, must set phi, or o/f, or %f, etc.")
     if len(materials) > 0: # If they specify materials, update our list
@@ -226,7 +227,7 @@ class Problem:
     return self.process_output()
   run_cea = run # alias for backward-compatibility
   
-  def make_input_file(self, material_list): # chamber conditions and materials list
+  def make_input_file(self, material_list: List[Material]): # chamber conditions and materials list
     # Make sure we have some materials
     if material_list is None or len(material_list) == 0:
       raise ValueError("must specify at least one Material in Problem")
@@ -267,10 +268,10 @@ class Problem:
       file.write(self.get_plt_string()) # output plotting string, if any
       file.write("end\n")
   
-  def get_plt_string(self):
+  def get_plt_string(self) -> str:
     return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
   
-  def process_output(self):
+  def process_output(self) -> str:
     # Process Plot file
     out = Output()
     try:
@@ -287,7 +288,7 @@ class Problem:
     return out
 
   ## THESE MUST BE IMPLEMENTED BY SUBCLASSES ##
-  def get_prefix_string(self):
+  def get_prefix_string(self) -> str:
     raise NotImplementedError()
 
 class DetonationProblem(Problem):
@@ -458,7 +459,7 @@ class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h"
     
-  def __init__(self, *args, sup=None, sub=None, ae_at=None, pip=None, analysis_type="equilibrium", **kwargs):
+  def __init__(self, *args, sup:float=None, sub:float=None, ae_at:float=None, pip:float=None, analysis_type:str="equilibrium", **kwargs):
     super().__init__(*args, **kwargs)
     
     if ae_at:

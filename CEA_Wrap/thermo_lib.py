@@ -2,6 +2,7 @@ import re, os.path
 import logging
 from time import time
 import difflib # for nearby element matches
+from typing import List
 from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
 from .utils import _get_data_file, Output
 
@@ -38,7 +39,7 @@ class ThermoInterface(metaclass=_Meta):
   def items(self): return self.thermo_materials.items()
   
   @classmethod
-  def get_close_matches(self, name, n=6):
+  def get_close_matches(self, name:str, n:int=6) -> List[str]:
     n1 = int(n/2) # round down
     n2 = int(round(n/2,0)) # round up
     name_list = list(self.thermo_materials) # maintain ordering for indexing
@@ -70,14 +71,14 @@ class ThermoMaterial(Output):
       except KeyError:
         raise KeyError("ThermoMaterial did not receive keyword arg '{}'".format(elem)) from None
         
-  def defined_at(self, temp):
+  def defined_at(self, temp:float) -> bool:
     # Returns True if the element is defined in any of the reactant's temperature ranges
     for low, high in self.temp_ranges:
       if low < temp < high:
         return True
     return False
 
-def load_thermo_file(filename = _get_data_file("thermo_spg.inp")):
+def load_thermo_file(filename:str = _get_data_file("thermo_spg.inp")):
   """
     Loads the thermo input file at filename
     Returns a dictionary of name: ThermoMaterial representing the material

@@ -46,7 +46,7 @@ class DataCollector(Output):
     for key in keys + chamber_keys + throat_keys + exit_keys:
       self[key] = list()
   
-  def add_data(self, data):
+  def add_data(self, data: Output):
     def try_add(key, inner):
       try:
         self[key].append(data[inner][key])
@@ -96,17 +96,17 @@ except ImportError:
   import warnings
   warnings.warn("Numpy is not installed, 'NumpyDataCollector' module will not be available")
 
-def _get_asset(file):
+def _get_asset(file: str) -> str:
   # The reason the manager is used is because our package may be zipped and the manager extracts it
   #   However, this package is not zip-safe so we just return the location
   with importlib.resources.path(__package__+".assets", file) as manager:
     return str(manager)
     
-def _get_data_file(file):
+def _get_data_file(file: str) -> str:
   # Returns a file location in our data directory
   return os.path.join(appdirs.user_data_dir(__package__, False), file)
 
-def cleanup_package_install():
+def cleanup_package_install() -> bool:
   """
   Cleans up directory structure after install.
   Expected process:
@@ -119,35 +119,35 @@ def cleanup_package_install():
   try:
     asset_dir = _get_asset("")
   except ModuleNotFoundError: # Raises this if directory doesn't exist
-    log.debug("Assets directory doesn't exist")
+    logging.debug("Assets directory doesn't exist")
     return False
   data_dir = _get_data_file("")
   if os.path.isdir(asset_dir):
-    log.info("Performing first-time setup: package assets directory exists, moving files to data directory")
-    log.debug("Package Dir: " + asset_dir)
-    log.debug("Data Dir:    " + data_dir)
+    logging.info("Performing first-time setup: package assets directory exists, moving files to data directory")
+    logging.debug("Package Dir: " + asset_dir)
+    logging.debug("Data Dir:    " + data_dir)
     if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
-      log.debug("Data directory didn't exist")
+      logging.debug("Data directory didn't exist")
       os.makedirs(data_dir)
     for file in os.listdir(asset_dir):
       if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
         continue
       src_path = os.path.join(asset_dir, file)
       dst_path = os.path.join(data_dir, file)
-      log.info("Checking file: " + file)
-      log.debug(src_path + " ==> " + dst_path)
+      logging.info("Checking file: " + file)
+      logging.debug(src_path + " ==> " + dst_path)
       if not os.path.exists(dst_path): # If we don't already have a copy of this file
-        log.debug("Copying file")
+        logging.debug("Copying file")
         shutil.copy2(src_path, dst_path) # Copy it
-      log.debug("Deleting file")
+      logging.debug("Deleting file")
       os.remove(src_path) # Regardless, remove the assets copy
-    log.info("Removing assets directory")
+    logging.info("Removing assets directory")
     shutil.rmtree(asset_dir) # Remove the assets directory when done
     return True
   else:
     return False # Nothing was changed because folder doesn't exist
 
-def move_file_if_changed(file, pack_file):
+def move_file_if_changed(file: str, pack_file: str):
   # file is the local destination, pack_file is the master location
   if os.path.isfile(file):
     # If the file is here, we check the hash of it against the package one

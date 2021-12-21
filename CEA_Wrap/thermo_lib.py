@@ -74,7 +74,7 @@ class ThermoMaterial(Output):
   def defined_at(self, temp:float) -> bool:
     # Returns True if the element is defined in any of the reactant's temperature ranges
     for low, high in self.temp_ranges:
-      if low < temp < high:
+      if low <= temp <= high:
         return True
     return False
 

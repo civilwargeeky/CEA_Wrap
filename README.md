@@ -105,19 +105,22 @@ Functions off of the existing material list, so call this after setting material
 
 ## Rocket Problem Constructor Additional Parameters:
 For `RocketProblem(*, **kwargs)`
-* `sup`: default 1, supersonic exit/throat area ratio
+* `sup`: default 1, supersonic exit area/throat area ratio
   * sup can be specified later with .set_sup
 * `sub`: default None, subsonic exit/throat area ratio
   * sub can be specified later with .set_sub
 * **NOTE:** sup and sub cannot be specified at the same time
 * `ae_at`: alias for `sup`
   * ae_at can be specified later with .set_ae_at
+* `pip`: Pressure ratio of chamber pressure/exit pressure
+  * pip can be specified later with .set_pip
 * `analysis_type`: default "equilibrium", whether to use equilibrium reactions or frozen. For using frozen specify "frozen" or "frozen nfz=1" for frozen at the chamber or "frozen nfz=2" for frozen at the throat
 
 ### RocketProblem Methods
 * `.set_sup(sup)` - Sets supersonic area ratio
 * `.set_sub(sub)` - Sets subsonic area ratio
 * `.set_ae_at(sup)` - Sets supersonic area ratio
+* `.set_pip(pip)` - Sets pressure ratio
 
 ## Available Output Dictionary Keys:
 All Problem data objects are "Output" objects, which are similar to dictionaries, but can also be accessed with dot notation.

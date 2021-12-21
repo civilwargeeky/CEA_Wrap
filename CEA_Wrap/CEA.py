@@ -8,20 +8,25 @@ _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
 CEA_LOCATION = _get_asset(_BASE_CEA)
 
-for file in ["thermo.lib", "trans.lib"]:
-  if os.path.isfile(file):
-    # If the file is here, we check the hash of it against the package one
-    pack_file = _get_asset(file)
-    with open(pack_file, "rb") as f1, open(file, "rb") as f2:
-      pack_hash = crc32(f1.read())
-      local_hash = crc32(f2.read())
-    if pack_hash != local_hash: 
-      print(file+" hash does not match package file hash! Updating local file with one from package")
-      shutil.copyfile(pack_file, file)
-  else:
-    # If not here, copy it from package
-    print(file+" not found in current directory. Copying from package to current directory...")
-    shutil.copyfile(_get_asset(file), file)
+try:
+  for file in ["thermo.lib", "trans.lib"]:
+    if os.path.isfile(file):
+      # If the file is here, we check the hash of it against the package one
+      pack_file = _get_asset(file)
+      with open(pack_file, "rb") as f1, open(file, "rb") as f2:
+        pack_hash = crc32(f1.read())
+        local_hash = crc32(f2.read())
+      if pack_hash != local_hash: 
+        print(file+" hash does not match package file hash! Updating local file with one from package")
+        shutil.copyfile(pack_file, file)
+    else:
+      # If not here, copy it from package
+      print(file+" not found in current directory. Copying from package to current directory...")
+      shutil.copyfile(_get_asset(file), file)
+except PermissionError as e:
+  print("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
+  print("---- Is your current directory system32 or another protected directory? ----")
+  raise e from None
 
 # Load our interface to all the ThermoMaterials
 ThermoInterface.load()
@@ -460,36 +465,39 @@ class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h"
     
-  def __init__(self, *args, sup=None, sub=None, ae_at=None, analysis_type="equilibrium", **kwargs):
+  def __init__(self, *args, sup=None, sub=None, ae_at=None, pip=None, analysis_type="equilibrium", **kwargs):
     super().__init__(*args, **kwargs)
     
     if ae_at:
       sup = ae_at
-    if not sup and not sub: # Default if nothing is specified
+    if not sup and not sub and not pip: # Default if nothing is specified
       sup = 1
     if sup and sub:
       raise ValueError("Can only specify supersonic or subsonic area ratio, not both")
+    if pip and (sup or sub):
+      raise ValueError("Can only specify area ratio or pressure ratio, not both")
 
     analysis_type = analysis_type.lower() # ensure case because we check for frozen by literal
-    self.area_ratio_name = "sup" if sup else "sub" # Can only specify one supersonic or subsonic area ratio
-    self.area_ratio_value = sup if sup else sub
-    self.ae_at = ae_at
+    self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
+    self.nozzle_ratio_value = pip if pip else (sup if sup else sub)
     self.analysis_type = analysis_type # equilibrium or frozen
     
     if "equilibrium" in analysis_type and "frozen" in analysis_type:
       raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
   
   
-  def set_sup(self, sup): self.area_ratio_name = "sup"; self.area_ratio_value = sup
-  def set_sub(self, sub): self.area_ratio_name = "sub"; self.area_ratio_value = sub
+  def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value = sup
+  def set_sub(self, sub): self.nozzle_ratio_name = "sub"; self.nozzle_ratio_value = sub
   def set_ae_at(self, ae_at): self.set_sup(ae_at)
+  
+  def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value = pip
   
   def get_prefix_string(self):
     toRet = []
     toRet.append("{} {}".format(self.problem_type, self.analysis_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
-    toRet.append("   {} = {:0.5f}".format(self.area_ratio_name, self.area_ratio_value)) # Actually wait this is dumb.... should be sup and sub separate
+    toRet.append("   {} = {:0.5f}".format(self.nozzle_ratio_name, self.nozzle_ratio_value))
     return "\n".join(toRet) + "\n"
   
   def process_output(self):

@@ -3,6 +3,8 @@ from setuptools.command.sdist import sdist
 from setuptools.command.install import install
 import platform, subprocess, os
 
+VERSION = '1.5.0'
+
 instructions = """
 (Courtesy of Morgan Reusch)
 Install XCode from the Mac App Store
@@ -56,7 +58,7 @@ with open("README.md", "r") as fh:
     long_description = "**PyPI NOTE: This package is installed with 'pip install CEA_Wrap' with an underscore. PyPI doesn't show underscores in package names**\n\n" + long_description
 
 setuptools.setup( name='CEA_Wrap',
-                  version='1.4.4',
+                  version=VERSION,
                   description='A Python-Based wrapper for the NASA CEA Thermochemical Code',
                   long_description=long_description,
                   long_description_content_type="text/markdown",

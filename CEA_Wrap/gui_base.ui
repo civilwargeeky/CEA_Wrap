@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>994</width>
+    <width>1032</width>
     <height>600</height>
    </rect>
   </property>
@@ -137,6 +137,15 @@
               <height>25</height>
              </size>
             </property>
+            <property name="verticalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
+            </property>
+            <property name="horizontalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
+            </property>
+            <property name="lineWrapMode">
+             <enum>QPlainTextEdit::NoWrap</enum>
+            </property>
             <property name="placeholderText">
              <string>Name</string>
             </property>
@@ -162,6 +171,15 @@
               <width>16777215</width>
               <height>25</height>
              </size>
+            </property>
+            <property name="verticalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
+            </property>
+            <property name="horizontalScrollBarPolicy">
+             <enum>Qt::ScrollBarAlwaysOff</enum>
+            </property>
+            <property name="lineWrapMode">
+             <enum>QPlainTextEdit::NoWrap</enum>
             </property>
             <property name="placeholderText">
              <string>Description</string>
@@ -208,10 +226,10 @@
           </item>
           <item>
            <widget class="QComboBox" name="elem1name">
-            <property name="maximumSize">
+            <property name="minimumSize">
              <size>
-              <width>50</width>
-              <height>16777215</height>
+              <width>60</width>
+              <height>0</height>
              </size>
             </property>
             <property name="editable">
@@ -244,10 +262,10 @@
           </item>
           <item>
            <widget class="QComboBox" name="elem2name">
-            <property name="maximumSize">
+            <property name="minimumSize">
              <size>
-              <width>50</width>
-              <height>16777215</height>
+              <width>60</width>
+              <height>0</height>
              </size>
             </property>
             <property name="editable">
@@ -280,10 +298,10 @@
           </item>
           <item>
            <widget class="QComboBox" name="elem3name">
-            <property name="maximumSize">
+            <property name="minimumSize">
              <size>
-              <width>50</width>
-              <height>16777215</height>
+              <width>60</width>
+              <height>0</height>
              </size>
             </property>
             <property name="editable">
@@ -316,10 +334,10 @@
           </item>
           <item>
            <widget class="QComboBox" name="elem4name">
-            <property name="maximumSize">
+            <property name="minimumSize">
              <size>
-              <width>50</width>
-              <height>16777215</height>
+              <width>60</width>
+              <height>0</height>
              </size>
             </property>
             <property name="editable">
@@ -352,10 +370,10 @@
           </item>
           <item>
            <widget class="QComboBox" name="elem5name">
-            <property name="maximumSize">
+            <property name="minimumSize">
              <size>
-              <width>50</width>
-              <height>16777215</height>
+              <width>60</width>
+              <height>0</height>
              </size>
             </property>
             <property name="editable">
@@ -513,6 +531,12 @@
          <property name="orientation">
           <enum>Qt::Vertical</enum>
          </property>
+         <property name="sizeHint" stdset="0">
+          <size>
+           <width>100</width>
+           <height>100</height>
+          </size>
+         </property>
         </spacer>
        </item>
        <item>
@@ -557,7 +581,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>994</width>
+     <width>1032</width>
      <height>21</height>
     </rect>
    </property>

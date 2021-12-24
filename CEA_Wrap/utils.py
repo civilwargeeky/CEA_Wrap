@@ -139,16 +139,6 @@ def cleanup_package_install() -> bool:
       if not os.path.exists(dst_path): # If we don't already have a copy of this file
         logging.debug("Copying file")
         shutil.copy2(src_path, dst_path) # Copy it
-      logging.debug("Deleting file")
-      try:
-        os.remove(src_path) # Regardless, remove the assets copy
-      except OSError:
-        logging.info("Failed to delete, insufficient permissions")
-    logging.info("Removing assets directory")
-    try:
-      shutil.rmtree(asset_dir) # Remove the assets directory when done
-    except OSError:
-      logging.info("Failed to delete, insufficient permissions")
     return True
   else:
     return False # Nothing was changed because folder doesn't exist

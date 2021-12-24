@@ -7,7 +7,7 @@
 !thermo_spg.out
 CEA_Wrap.egg-info/
 .idea/
-build.bat
 cea2.f
 cea.inc
 /writeElem.py
+*.bat

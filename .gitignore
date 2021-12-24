@@ -10,3 +10,4 @@ CEA_Wrap.egg-info/
 build.bat
 cea2.f
 cea.inc
+/writeElem.py

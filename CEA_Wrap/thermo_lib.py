@@ -78,11 +78,13 @@ class ThermoMaterial(Output):
         return True
     return False
 
-def load_thermo_file(filename:str = _get_data_file("thermo_spg.inp")):
+def load_thermo_file(filename:str = None):
   """
     Loads the thermo input file at filename
     Returns a dictionary of name: ThermoMaterial representing the material
   """
+  if filename is None:
+    filename = _get_data_file("thermo_spg.inp")
   
   split_by_num = lambda string, num: [string[i:i+num] for i in range(0, len(string), num)]
   

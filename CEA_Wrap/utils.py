@@ -3,6 +3,8 @@ import logging
 import appdirs
 from zlib import crc32
 
+use_local_assets = True # If possible, use local assets rather than site-packages. Set to false if error on move
+
 class Output(dict): # This is just a dictionary that you can also use dot notation to access
   def __init__(self): # Explicitly must receive no arguments, because I don't want to deal with constructor properties
     super().__init__()
@@ -102,9 +104,16 @@ def _get_asset(file: str) -> str:
   with importlib.resources.path(__package__+".assets", file) as manager:
     return str(manager)
     
-def _get_data_file(file: str) -> str:
+def _get_local_data_file(file: str) -> str:
   # Returns a file location in our data directory
   return os.path.join(appdirs.user_data_dir(__package__, False), file)
+  
+def _get_data_file(file: str) -> str:
+  # Get local data file if available. Otherwise revert to package assets
+  if use_local_assets:
+    return _get_local_data_file(file)
+  else:
+    return _get_asset(file)
 
 def cleanup_package_install() -> bool:
   """
@@ -112,36 +121,40 @@ def cleanup_package_install() -> bool:
   Expected process:
   1st run: There is no AppData folder, all assets are in site-packages\CEA_Wrap\assets folder
            We create AppData\Local\CEA_Wrap and move all our assets there.
-           We delete site-packages\CEA_Wrap\assets
   Subsequent runs: We check that the site-packages\CEA_Wrap\assets folder exists and it doesn't so we don't change anything
   Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement, so user thermo_spg.inp files are saved, but any missing assets are added
   """
   try:
     asset_dir = _get_asset("")
+    data_dir = _get_data_file("")
+    if os.path.isdir(asset_dir):
+      logging.info("Performing first-time setup: package assets directory exists, moving files to data directory")
+      logging.debug("Package Dir: " + asset_dir)
+      logging.debug("Data Dir:    " + data_dir)
+      if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
+        logging.debug("Data directory didn't exist")
+        os.makedirs(data_dir)
+      for file in os.listdir(asset_dir):
+        if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
+          continue
+        src_path = os.path.join(asset_dir, file)
+        dst_path = os.path.join(data_dir, file)
+        logging.info("Checking file: " + file)
+        logging.debug(src_path + " ==> " + dst_path)
+        if not os.path.exists(dst_path): # If we don't already have a copy of this file
+          logging.debug("Copying file")
+          shutil.copy2(src_path, dst_path) # Copy it
+      return True
+    else:
+      return False # Nothing was changed because folder doesn't exist
   except ModuleNotFoundError: # Raises this if directory doesn't exist
     logging.debug("Assets directory doesn't exist")
     return False
-  data_dir = _get_data_file("")
-  if os.path.isdir(asset_dir):
-    logging.info("Performing first-time setup: package assets directory exists, moving files to data directory")
-    logging.debug("Package Dir: " + asset_dir)
-    logging.debug("Data Dir:    " + data_dir)
-    if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
-      logging.debug("Data directory didn't exist")
-      os.makedirs(data_dir)
-    for file in os.listdir(asset_dir):
-      if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
-        continue
-      src_path = os.path.join(asset_dir, file)
-      dst_path = os.path.join(data_dir, file)
-      logging.info("Checking file: " + file)
-      logging.debug(src_path + " ==> " + dst_path)
-      if not os.path.exists(dst_path): # If we don't already have a copy of this file
-        logging.debug("Copying file")
-        shutil.copy2(src_path, dst_path) # Copy it
-    return True
-  else:
-    return False # Nothing was changed because folder doesn't exist
+  except PermissionError: # Unsure why this happens, happened to one person using Anaconda
+    global use_local_assets
+    logging.warning("Permission Error. Cannot create local assets directory. Thermo lib will be overwritten on update")
+    use_local_assets = False
+    return False
 
 def move_file_if_changed(file: str, pack_file: str):
   # file is the local destination, pack_file is the master location

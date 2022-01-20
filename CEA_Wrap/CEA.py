@@ -1,9 +1,10 @@
 import subprocess, re
-import logging
+import logging as _logging
 import platform
 from typing import List, Union
 from .utils import _get_data_file, cleanup_package_install, move_file_if_changed, Output
 from .thermo_lib import ThermoInterface
+logging = _logging.getLogger(__name__)
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 

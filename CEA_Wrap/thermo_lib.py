@@ -1,10 +1,11 @@
 import re, os.path
-import logging
+import logging as _logging
 from time import time
 import difflib # for nearby element matches
 from typing import List
 from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
 from .utils import _get_data_file, Output
+logging = _logging.getLogger(__name__)
 
 class _Meta(type):
   def __getitem__(cls, name): # Allows ThermoInterface["CH4"]

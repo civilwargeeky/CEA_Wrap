@@ -1,7 +1,8 @@
 import importlib.resources, os, shutil
-import logging
+import logging as _logging
 import appdirs
 from zlib import crc32
+logging = _logging.getLogger(__name__)
 
 use_local_assets = True # If possible, use local assets rather than site-packages. Set to false if error on move
 

@@ -118,6 +118,7 @@ def _get_data_file(file: str) -> str:
 def cleanup_package_install() -> bool:
   """
   Cleans up directory structure after install.
+  NOTE: Should be called before any call to _get_asset! May change what directory to look in
   Expected process:
   1st run: There is no AppData folder, all assets are in site-packages\CEA_Wrap\assets folder
            We create AppData\Local\CEA_Wrap and move all our assets there.

@@ -7,11 +7,11 @@ from .thermo_lib import ThermoInterface
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
-CEA_LOCATION = _get_data_file(_BASE_CEA)
-
 # The first time we install from source, we need to move our files from the ".assets" directory to our data directory
 # This function checks if the assets directory still exists, and if so, will try to copy files to it.
 cleanup_package_install()
+
+CEA_LOCATION = _get_data_file(_BASE_CEA) # Get data file after cleanup because location may be different depending on availability
 
 try:
   for file in ["thermo.lib", "trans.lib"]:

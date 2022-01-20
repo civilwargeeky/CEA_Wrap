@@ -78,6 +78,10 @@ class ThermoMaterial(Output):
         return True
     return False
 
+# These are molecules in the default thermo.inp that have multiple entries specified
+# If entries besides these are defined multiple times, we should give user a warning
+_default_doubled_names = ["Co(b)", "Cr(cr)", "Cr2O3(I)", "Cr2O3(I)", "Fe(a)", "Fe2O3(cr)", "Fe3O4(cr)", "K2S(cr)", "Na2S(cr)", "Ni(cr)", "SnS(cr)"]
+
 def load_thermo_file(filename:str = None):
   """
     Loads the thermo input file at filename
@@ -155,6 +159,9 @@ def load_thermo_file(filename:str = None):
           try:
             mat = process_lines(cur_mat_lines, after_air)
             if mat.name in materials: # For some God-forsaken reason, some materials have multiple entries with identical properties for multiple temp ranges
+              logging.debug("Name overlap for Material '{}'".format(mat.name))
+              if mat.name not in _default_doubled_names:
+                logging.warning(f"User material '{mat.name}' shares name with default material. Old material not overwritten. Material temperature ranges appended") 
               materials[mat.name].temp_ranges.extend(mat.temp_ranges)
             else: # First time we're seeing it
               materials[mat.name] = mat

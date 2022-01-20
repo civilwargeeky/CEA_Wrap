@@ -129,7 +129,7 @@ def cleanup_package_install() -> bool:
     asset_dir = _get_asset("")
     data_dir = _get_data_file("")
     if os.path.isdir(asset_dir):
-      logging.info("Performing first-time setup: package assets directory exists, moving files to data directory")
+      logging.debug("Doing assets existence moving: package assets directory exists, moving files to data directory")
       logging.debug("Package Dir: " + asset_dir)
       logging.debug("Data Dir:    " + data_dir)
       if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
@@ -140,7 +140,7 @@ def cleanup_package_install() -> bool:
           continue
         src_path = os.path.join(asset_dir, file)
         dst_path = os.path.join(data_dir, file)
-        logging.info("Checking file: " + file)
+        logging.debug("Checking file: " + file)
         logging.debug(src_path + " ==> " + dst_path)
         if not os.path.exists(dst_path): # If we don't already have a copy of this file
           logging.debug("Copying file")

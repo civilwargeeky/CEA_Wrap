@@ -37,12 +37,12 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
   In order to run problems, you must create materials. `Materials` must be either Fuel or Oxidizer (alias: F or O) objects
   
   ### Constructor Parameters - Either Fuel() or Oxidizer():
-  ```Material(name, temp=298, wt_percent=None, mols=None, chemical_composition = None, hf = None):```
+  ```Material(name, temp=298.15, wt_percent=None, mols=None, chemical_composition = None, hf = None):```
   
 * `name`: required parameter, the CEA material name with correct spelling. E.G. aluminum is "AL(cr)" and methane is "CH4". 
   * If you specify chemical_composition, name can be whatever single word you want
   * If you try to specify a chemical which is not in the thermo_spg.inp file, a ValueError will be raised. To prevent this check, set `Material.check_against_thermo_inp = False`
-* `temp`: default 298, specified reactant initial temperature, Kelvin
+* `temp`: default 298.15, specified reactant initial temperature, Kelvin
   * If you try to specify a temperature which is not supported for this material in the thermo_spg.inp file, a ValueError will be raised. To prevent this check, set `Material.check_against_thermo_inp = False`
 * `wt_percent`: A weight-based percentage for the element. Weight percentages do not need to add up to 100, and are calculated on the ratio with other Fuels/Oxidizers
 * `mols`: A mol-based percentage for the element. Can be used as in `Oxidizer("O2", mols=1)` and `Oxidizer("N2", mols=3.76)` for air (except CEA has "air" as a reactant...)
@@ -51,6 +51,10 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
   * **NOTE: UNTESTED**
 * `hf`:  Enthalpy of formation, kJ/kg, must be specified if chemical_composition is specified
   * **NOTE: UNTESTED**
+
+### Available Members
+* All parameters from the constructor are also members
+* `.ref` - If Material.check_against_thermo_inp is True, this will be a ThermoMaterial representing the material
 
 ### Available Methods
 * `.set_wt_percent(wt_percent)` - Sets the wt_percent for the `Material`. Sets mols to None

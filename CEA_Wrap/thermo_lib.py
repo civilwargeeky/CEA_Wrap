@@ -154,7 +154,10 @@ def load_thermo_file(filename:str = None):
         if len(cur_mat_lines) > 0: # We will now process the previous material that we are at a new one
           try:
             mat = process_lines(cur_mat_lines, after_air)
-            materials[mat.name] = mat
+            if mat.name in materials: # For some God-forsaken reason, some materials have multiple entries with identical properties for multiple temp ranges
+              materials[mat.name].temp_ranges.extend(mat.temp_ranges)
+            else: # First time we're seeing it
+              materials[mat.name] = mat
           except AssertionError: # errors on "thermo" line because it isn't a proper line
             pass
           cur_mat_lines.clear() # clear this array for further use

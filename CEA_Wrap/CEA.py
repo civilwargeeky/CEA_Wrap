@@ -31,7 +31,7 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True 
   
-  def __init__(self, name, temp:float=298, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None):
+  def __init__(self, name, temp:float=298.15, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
       wt_percent = 100
     
@@ -54,7 +54,10 @@ class Material:
       self.ref = ThermoInterface[name] # Get the ThermoMaterial and store it in ref
     
       if not ThermoInterface[name].defined_at(temp):
-        raise ValueError(f"specified material '{name}' does not exist at temperature {temp:0.2f}")
+        ranges = ThermoInterface[name].temp_ranges
+        string = f"specified material '{name}' does not exist at temperature {temp:0.2f} " +\
+                  " (min, max) = ({:.2f}, {:0.2f})".format(min(ranges)[0], max(ranges)[1]) # min and max sort by 1st element of tuples, assume tuple with max 1st element is max total.
+        raise ValueError(string)
     
     if wt_percent and mols:
       raise TypeError("Material cannot have both wt_percent and mols specified")

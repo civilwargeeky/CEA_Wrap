@@ -3,7 +3,7 @@ from setuptools.command.sdist import sdist
 from setuptools.command.install import install
 import platform, subprocess, os
 
-VERSION = '1.5.3'
+VERSION = '1.6.0'
 
 instructions = """
 (Courtesy of Morgan Reusch)
@@ -66,7 +66,8 @@ setuptools.setup( name='CEA_Wrap',
                   author='Daniel Klinger',
                   author_email='klingerd@purdue.edu',
                   license_files=["LICENSE"],
-                  install_requires=["appdirs", "PyQt5"],
+                  install_requires=["appdirs"],
+                  extras_require={"gui": ["PyQt5"]}, # When module is installed with "pip install CEA_Wrap[gui]"
                   packages=setuptools.find_packages(),
                   python_requires=">=3.6",
                   include_package_data=True, # Add in pdfs and executables defined in the manifest

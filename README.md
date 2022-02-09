@@ -17,6 +17,10 @@ People mess this up, so I don't recommend it anymore
 
 You can import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
 
+## Installation on Mac
+On mac, the installation script will attempt to compile the fortran executable on your system. Should it fail to do so, you will have to compile it manually.
+You can see a discussion from a successful user here: [Issue #1](https://github.com/civilwargeeky/CEA_Wrap/issues/1#issuecomment-1033918162)
+
 # Examples
 Examples on basic use can be found in the "examples" directory. Feel free to download them and try them out!
 

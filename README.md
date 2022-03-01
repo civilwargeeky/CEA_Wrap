@@ -205,6 +205,12 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `visc` - burned gas viscosity, Pascal-Seconds
   * `t_visc` - throat
   * `c_visc` - chamber
+* `cond` - burned gas thermal conductivity, W/(m K)
+  * `t_cond` - throat
+  * `c_cond` - chamber
+* `pran` - burned gas Prandtl number. Ratio of mass diffusivity to thermal diffusivity
+  * `t_pran` - throat
+  * `c_pran` - chamber
 * `mw` - molecular weight of all products, kg/kmol
   * `t_mw` - throat
   * `c_mw` - chamber

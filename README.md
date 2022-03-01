@@ -130,6 +130,12 @@ For `RocketProblem(*, **kwargs)`
   * ae_at can be specified later with .set_ae_at
 * `pip`: Pressure ratio of chamber pressure/exit pressure
   * pip can be specified later with .set_pip
+* `fac_ma`: Finite Area Combustor, with mass flow (mdot) / combustor chamber area. Units of (kg/s)/m^2
+  * fac_ma can be specified later with .set_fac_ma
+  * Cannot be specified at the same time as fac_ac
+* `fac_ac`: Finite Area Combustor, with ac/at: Ratio of combustor area to throat area
+  * fac_ac can be specified later with .set_fac_ac
+  * Cannot be specified at the same time as fac_ma
 * `analysis_type`: default "equilibrium", whether to use equilibrium reactions or frozen. For using frozen specify "frozen" or "frozen nfz=1" for frozen at the chamber or "frozen nfz=2" for frozen at the throat
 
 ### RocketProblem Methods
@@ -137,6 +143,8 @@ For `RocketProblem(*, **kwargs)`
 * `.set_sub(sub)` - Sets subsonic area ratio
 * `.set_ae_at(sup)` - Sets supersonic area ratio
 * `.set_pip(pip)` - Sets pressure ratio
+* `.set_fac_ma(fac)` - Sets finite area combustor, with mass flow/area ratio
+* `.set_fac_ac(fac)` - Sets finite area combustor, with combustor/throat area ratio
 
 ## Available Output Dictionary Keys:
 All Problem data objects are "Output" objects, which are similar to dictionaries, but can also be accessed with dot notation.
@@ -184,6 +192,7 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 ### Rocket:
 * **NOTE : Properties are by default at exit. Chamber parameters are prefixed "c_" and throat properties "t_"**
 * **NOTE : Properties not defined for frozen flow are marked with an asterisk (*)**
+* **NOTE : All properties defined at the throat are also defined as "f_property" when Finite Area Combustor is enabled (defined fac_ac or fac_ma)**
 * `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified in problem)
 * `*prod_t` - dictionary of throat products, in mole or mass fractions (as specified in problem)
 * `*prod_e` - dictionary of exit products, in mole or mass fractions (as specified in problem)

@@ -463,7 +463,7 @@ class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran"
     
-  def __init__(self, *args, sup:float=None, sub:float=None, ae_at:float=None, pip:float=None, analysis_type:str="equilibrium", **kwargs):
+  def __init__(self, *args, sup:float=None, sub:float=None, ae_at:float=None, pip:float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, **kwargs):
     super().__init__(*args, **kwargs)
     
     if ae_at:
@@ -474,14 +474,22 @@ class RocketProblem(Problem):
       raise ValueError("Can only specify supersonic or subsonic area ratio, not both")
     if pip and (sup or sub):
       raise ValueError("Can only specify area ratio or pressure ratio, not both")
-
+    if fac_ac and fac_ma:
+      raise ValueError("Can only specify fac ac/at or fac ma, not both")
+    
+    
     analysis_type = analysis_type.lower() # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
     self.nozzle_ratio_value = pip if pip else (sup if sup else sub)
     self.analysis_type = analysis_type # equilibrium or frozen
+    self.fac_type = None; self.fac_value = None
+    if fac_ac: self.set_fac_ac(fac_ac)
+    if fac_ma: self.set_fac_ma(fac_ma)
     
     if "equilibrium" in analysis_type and "frozen" in analysis_type:
       raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
+    if (fac_ac or fac_ma) and "frozen" in analysis_type:
+      raise ValueError("Rocket_Problem does not support combined finite area combustor and frozen calculations")
   
   
   def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value = sup
@@ -490,12 +498,17 @@ class RocketProblem(Problem):
   
   def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value = pip
   
+  def set_fac_ac(self, fac): self.fac_type = "ac/at"; self.fac_value = fac
+  def set_fac_ma(self, fac): self.fac_type = "mdot"; self.fac_value = fac
+  
   def get_prefix_string(self):
     toRet = []
     toRet.append("{} {}".format(self.problem_type, self.analysis_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
     toRet.append("   {} = {:0.5f}".format(self.nozzle_ratio_name, self.nozzle_ratio_value))
+    if self.fac_type:
+      toRet.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(toRet) + "\n"
   
   def process_output(self):
@@ -513,9 +526,21 @@ class RocketProblem(Problem):
       # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
       #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
       
+      has_fac = bool(self.fac_type) # If has finite area combustor
+      
       out.prod_c = Output()
       out.prod_t = Output()
       out.prod_e = Output()
+      if has_fac:
+        out.prod_f = Output()
+      
+      # Float map, mapping columns because the mapping isn't always 1,2,3
+      def flMap(splitline, key):
+        if has_fac: # If finite area combustor, we have more columns
+          mapping = {"c": 1, "f": 2, "t": 3, "e": 4}
+        else: # Otherwise, normal
+          mapping = {"c": 1, "t": 2, "e": 3}
+        return float(splitline[mapping[key]])
       
       for line in file:
         if "FATAL" in line:
@@ -550,9 +575,11 @@ class RocketProblem(Problem):
                 out.prod_c[key] = float(value)
             else:
               key = split[0].lstrip("*") # remove any asterisks
-              out.prod_c[key] = float(split[1])
-              out.prod_t[key] = float(split[2])
-              out.prod_e[key] = float(split[3])
+              out.prod_c[key] = flMap(split, 'c')
+              out.prod_t[key] = flMap(split, 't')
+              out.prod_e[key] = flMap(split, 'e')
+              if has_fac: out.prod_f[key] = flMap(split, 'f')
+              
           ### Output gas products ###
           elif search_i == 0:
             if not line.strip(): # If this line is empty, skip it
@@ -560,17 +587,20 @@ class RocketProblem(Problem):
             split = re.findall("\S+", line) # match by sections which are not whitespace
             key = split[0]
             if key == "(dLV/dLP)t": # Will not exist in frozen
-              out.c_dLV_dLP_t = float(split[1])
-              out.t_dLV_dLP_t = float(split[2])
-              out.dLV_dLP_t = float(split[3])
+              out.c_dLV_dLP_t = flMap(split, 'c')
+              out.t_dLV_dLP_t = flMap(split, 't')
+              out.dLV_dLP_t = flMap(split, 'e')
+              if has_fac: out.f_dLV_dLP_f = flMap(split, 'f')
             elif key == "(dLV/dLT)p":# Will not exist in frozen
-              out.c_dLV_dLT_p = float(split[1])
-              out.t_dLV_dLT_p = float(split[2])
-              out.dLV_dLT_p = float(split[3])
+              out.c_dLV_dLT_p = flMap(split, 'c')
+              out.t_dLV_dLT_p = flMap(split, 't')
+              out.dLV_dLT_p = flMap(split, 'e')
+              if has_fac: out.f_dLV_dLT_p = flMap(split, 'f')
             elif key == "VISC,MILLIPOISE": # Keep going until we find the viscosity line
-              out.c_visc = float(split[1]) * 0.0001 # convert millipoise to Pa-s
-              out.t_visc = float(split[2]) * 0.0001 # convert millipoise to Pa-s
-              out.visc = float(split[3]) * 0.0001 # convert millipoise to Pa-s
+              out.c_visc = flMap(split, 'c') * 0.0001 # convert millipoise to Pa-s
+              out.t_visc = flMap(split, 't') * 0.0001 # convert millipoise to Pa-s
+              out.visc = flMap(split, 'e') * 0.0001 # convert millipoise to Pa-s
+              if has_fac: out.f_visc = flMap(split, 'f')
               in_search_area = False
               continue
           elif search_i == 1:
@@ -593,12 +623,22 @@ class RocketProblem(Problem):
                 out.isp = float(split[3])/9.81
     
     try:
+      chamber_count = 1
+      if has_fac:
+        fac_count = 2
+        throat_count = 3
+        exit_count = 4
+      else:
+        fac_count = -1
+        throat_count = 2
+        exit_count = 3
+      
       with open(self.filename+".plt", errors='ignore') as file:
         for counter, line in enumerate(file):
           new_line = line.split()
           if counter == 0:
             continue
-          elif  counter == 1: # chamber properties
+          elif  counter == chamber_count: # chamber properties
             # Values common to all
             out.o_f = float(new_line[8])
             out.phi = float(new_line[13])
@@ -620,7 +660,30 @@ class RocketProblem(Problem):
             out.c_h = float(new_line[14])
             out.c_cond = float(new_line[15])/10 # Convert mW/cm K to W/m K
             out.c_pran = float(new_line[16])
-          elif counter == 2: # throat properties
+          elif counter == fac_count: # finite area combustor properties
+            # Throat/Nozzle Values
+            out.f_isp = float(new_line[2])/9.81
+            out.f_ivac = float(new_line[3])/9.81
+            out.f_cf = float(new_line[9])
+            
+            # Section Properties  
+            out.f_p = float(new_line[0])
+            out.f_t = float(new_line[1])
+            out.f_m = float(new_line[4])
+            out.f_mw = float(new_line[5])
+            if out.f_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
+              out.f_condensed = False
+              out.f_m = out.t_mw
+            else:
+              out.f_condensed = True # has condensed phase products
+            out.f_cp = float(new_line[6])
+            out.f_gammas = float(new_line[7])
+            out.f_rho = float(new_line[10])
+            out.f_son = float(new_line[11])
+            out.f_h = float(new_line[14])
+            out.f_cond = float(new_line[15])/10
+            out.f_pran = float(new_line[16])
+          elif counter == throat_count: # throat properties
             # Throat/Nozzle Values
             out.t_isp = float(new_line[2])/9.81
             out.t_ivac = float(new_line[3])/9.81
@@ -643,7 +706,7 @@ class RocketProblem(Problem):
             out.t_h = float(new_line[14])
             out.t_cond = float(new_line[15])/10
             out.t_pran = float(new_line[16])
-          elif counter == 3: # noz properties
+          elif counter == exit_count: # nozzle exit properties
             # Exit-only values
             out.mach = float(new_line[12])
             
@@ -669,6 +732,7 @@ class RocketProblem(Problem):
             out.h = float(new_line[14])
             out.cond = float(new_line[15])/10
             out.pran = float(new_line[16])
+            
     except FileNotFoundError:
       raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
             

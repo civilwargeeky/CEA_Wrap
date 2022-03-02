@@ -297,7 +297,7 @@ class Problem:
 
 class DetonationProblem(Problem):
   problem_type = "det"
-  plt_keys = "p t h mw cp gammas phi vel mach rho son"
+  plt_keys = "p t h mw cp gammas phi vel mach rho son cond pran"
   
   def get_prefix_string(self):
     toRet = []
@@ -385,7 +385,7 @@ class DetonationProblem(Problem):
     
 class HPProblem(Problem):
   problem_type = "hp"
-  plt_keys = "p t h mw cp gammas phi rho son"
+  plt_keys = "p t h mw cp gammas phi rho son cond pran"
   def get_prefix_string(self):
     toRet = []
     toRet.append("{}".format(self.problem_type))

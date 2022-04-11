@@ -32,7 +32,7 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True 
   
-  def __init__(self, name, temp:float=298.15, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None):
+  def __init__(self, name, temp:float=298.15, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None, hf_type="mol"):
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
       wt_percent = 100
     
@@ -42,8 +42,8 @@ class Material:
     self.mols = mols # Mole ratio for this material
     self.chemical_composition = chemical_composition # chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values
     self.hf = hf # Enthalpy of formation, if needs to be defined.
-    if chemical_composition != None and hf == None:
-      raise ValueError("Elements entered molecule by molecule must have defined hf")
+    if (chemical_composition == None) ^ (hf == None): # XOR is true if exactly one is true
+      raise ValueError("Elements entered with exploded chemical formula or hf must have both")
     
     if self.check_against_thermo_inp and not chemical_composition: # If they don't override thermo.lib data and we check for missing elements
       if name not in ThermoInterface:

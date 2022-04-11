@@ -53,7 +53,7 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 * **NOTE:** wt_percent and mols cannot be specified together, if neither is defined, the `Material` gets a wt_percent of 1
 * `chemical_composition`: chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values 
   * **NOTE: Not rigourously tested**
-* `hf`:  Enthalpy of formation, kJ/kg, must be specified if chemical_composition is specified
+* `hf`:  Enthalpy of formation, kJ/mol, must be specified if chemical_composition is specified
   * **NOTE: Not rigourously tested**
 
 ### Available Members

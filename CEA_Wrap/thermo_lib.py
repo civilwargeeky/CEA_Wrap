@@ -29,8 +29,8 @@ class ThermoInterface(metaclass=_Meta):
     raise NotImplementedError("this is a static class and can't be instantiated")
   
   @classmethod
-  def load(self):
-    self.thermo_materials = load_thermo_file()
+  def load(self, filename:str=None):
+    self.thermo_materials = load_thermo_file(filename)
     
   @classmethod
   def keys(self): return self.thermo_materials.keys()

@@ -275,6 +275,14 @@ class Problem:
   def get_plt_string(self) -> str:
     return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
   
+  def _error_check_thermo_out_line(self, line):
+    # Either raises an error or does nothing
+    filePath = repr(self.filename+".out")
+    if "FATAL" in line:
+      raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + filePath)
+    if "LOW TEMPERATURE IMPLIES" in line:
+      raise RuntimeError("CEA Failed to Run. Reactants failed to react with given species \n  (likely need to add condensed phase product species to 'inserts')\n  Check output file for details: " + filePath)
+  
   def process_output(self) -> str:
     # Process Plot file
     out = Output()
@@ -324,8 +332,7 @@ class DetonationProblem(Problem):
       out.prod_c = Output()
       
       for line in file:
-        if "FATAL" in line:
-          raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + self.filename)
+        self._error_check_thermo_out_line(line)
         # If we are no longer in a search area, increment our search term to look for the next search area
         if was_in_search_area and not in_search_area:
           passed_first_line = False # reset this too
@@ -411,8 +418,7 @@ class HPProblem(Problem):
       out.prod_c = Output()
       
       for line in file:
-        if "FATAL" in line:
-          raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + self.filename)
+        self._error_check_thermo_out_line(line)
         # If we are no longer in a search area, increment our search term to look for the next search area
         if was_in_search_area and not in_search_area:
           passed_first_line = False # reset this too
@@ -543,8 +549,7 @@ class RocketProblem(Problem):
         return float(splitline[mapping[key]])
       
       for line in file:
-        if "FATAL" in line:
-          raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + self.filename)
+        self._error_check_thermo_out_line(line)
         # If we are no longer in a search area, increment our search term to look for the next search area
         if was_in_search_area and not in_search_area:
           passed_first_line = False # reset this too

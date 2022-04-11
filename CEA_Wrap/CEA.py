@@ -92,7 +92,7 @@ class Material:
     else:
       string = "   {}={} {}={:0.5f}  t,k={:0.5f}".format(self.output_type, self.name, name, ratio, self.temp)
       if self.hf:
-        string += " h,kj/mol={:0.5}".format(self.hf)
+        string += " h,kj/mol={:0.5f}".format(self.hf)
       if self.chemical_composition:
         string += " " + self.chemical_composition
       return string + " \n"

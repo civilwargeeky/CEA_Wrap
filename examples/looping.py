@@ -125,7 +125,8 @@ collector.c_t
 collector.HCL
 # The really cool thing is that we don't need to worry about species not existing, because they will automatically be
 #   set to 0 in the correct position of the array
-collector.to_csv("myfile.csv")
+# Fun thing! You can also write your collectors to csv
+collector.to_csv("looper.csv")
 
 
 ## Example 6: Varying ratios of materials

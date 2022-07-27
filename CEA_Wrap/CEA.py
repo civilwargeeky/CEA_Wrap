@@ -278,12 +278,21 @@ class Problem:
   def _error_check_thermo_out_line(self, line):
     # Either raises an error or does nothing
     filePath = repr(self.filename+".out")
-    if "FATAL" in line:
-      raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + filePath)
-    if "LOW TEMPERATURE IMPLIES" in line:
-      raise RuntimeError("CEA Failed to Run. Reactants failed to react with given species \n  (likely need to add condensed phase product species to 'inserts')\n  Check output file for details: " + filePath)
-    if "CALCULATIONS STOPPED AFTER POINT" in line:
-      raise RuntimeError("CEA Failed to Run. No converged solution found in file: " + filePath)
+    prepend = "CEA Failed to Run. "
+    errors = { # Errors. Keys are error keys in CEA output. Values are a string to print which are prepended with a string and appended with the file name
+    "FATAL": "FATAL error in input/output file: ",
+    "LOW TEMPERATURE IMPLIES": "Reactants failed to react with given species \n  (likely need to add condensed phase product species to 'inserts')\n  Check output file for details: ",
+    "CALCULATIONS STOPPED AFTER POINT": "No converged solution found for file: ",
+    "CONVERGENCES FAILED": "CEA cannot determine correct condensed species. Try adding the correct ones with 'inserts'. Check output file: ",
+    "DERIVATIVE MATRIX SINGULAR": "Encountered a singular matrix in output file: ",
+    "ITERATIONS DID NOT SATISFY CONVERGENCE": "Failed to reach solution in reasonable number of iterations. Check output file: ",
+    "ELECTRON BALANCE": "In ionic iteration, convergence criterion was not satisfied. Check output file: ",
+    }
+    
+    for key, value in errors.items():
+      if key in line:
+        raise RuntimeError(prepend + value + filePath)
+    
   
   def process_output(self) -> str:
     # Process Plot file

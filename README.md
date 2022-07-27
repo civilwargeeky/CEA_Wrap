@@ -36,6 +36,20 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
   
   ```print_assets_directory()```
   Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
+  
+### DataCollector
+  A DataCollector object will conveniently compile output from Problem outputs into list format. Example usage can be found in the "looping.py" example
+  ```DataCollector(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[])```
+    `keys`: Also accepts list of arguments, these are keys such as 'cond' or 't_cp' or 'c_p'
+    `chamber_keys`: List of chamber species mol/mass fractions to be included in the output object. Ex: "H2O" or "CO2". The key in the ouptut will be the molecule name with "c_" prepended
+    `throat_keys`: List of nozzle throat species mol/mass fractions to be included. The key in the output will be the molecule name with "t_" prepended
+    `exit_keys`: List of nozzle exit species mol/mass fractions to be included. The key in the output will be the molecule name with nothing prepended.
+  
+  *Methods*
+  * `add_data(data)` - Data should be the output from Problem.run(). Appends the output of the keys specified in the initializer to the object
+  * `to_csv(filename, filename: str, keys:list=None, formatString="f"` - Writes the data to csv at **filename**, with the keys in **keys** (or all keys in this object if None)
+       using **formatString** to format the csv entries
+       
 
 ## Materials
   In order to run problems, you must create materials. `Materials` must be either Fuel or Oxidizer (alias: F or O) objects

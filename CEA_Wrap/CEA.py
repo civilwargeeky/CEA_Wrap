@@ -282,6 +282,8 @@ class Problem:
       raise RuntimeError("CEA Failed to Run. FATAL error in input/output file: " + filePath)
     if "LOW TEMPERATURE IMPLIES" in line:
       raise RuntimeError("CEA Failed to Run. Reactants failed to react with given species \n  (likely need to add condensed phase product species to 'inserts')\n  Check output file for details: " + filePath)
+    if "CALCULATIONS STOPPED AFTER POINT" in line:
+      raise RuntimeError("CEA Failed to Run. No converged solution found in file: " + filePath)
   
   def process_output(self) -> str:
     # Process Plot file

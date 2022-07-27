@@ -30,15 +30,22 @@ def _mutually_exclusive(*args):
   
 class DataCollector(Output):
   def __init__(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[]):
+    """
+    DataCollector objects are Output objects that accepts lists of keys to make into lists
+    :param keys: Also accepts list of arguments, these are keys such as 'cond' or 't_cp' or 'c_p'
+    :param chamber_keys: List of chamber species mol/mass fractions to be included in the output object. Ex: "H2O" or "CO2". The key in the ouptut will be the molecule name with "c_" prepended
+    :param throat_keys: List of nozzle throat species mol/mass fractions to be included. The key in the output will be the molecule name with "t_" prepended
+    :param exit_keys: List of nozzle exit species mol/mass fractions to be included. The key in the output will be the molecule name with nothing prepended.
+    """
     if len(args) > 0:
       if keys:
         raise TypeError("Data_Collector should not receive both a list of arguments and the 'keys' keyword")
       keys = list(args)
-    self._add_element = list.append
     self._keys = keys
     self._chamber_keys = chamber_keys
     self._throat_keys = throat_keys
     self._exit_keys = exit_keys
+    self._internal_keys = keys + exit_keys + list(map(lambda x: "t_"+x, throat_keys)) + list(map(lambda x: "c_"+x, chamber_keys))
     
     if not _mutually_exclusive(chamber_keys, throat_keys, exit_keys):
       raise ValueError("Can't have product keys in multiple keys arrays")
@@ -46,7 +53,7 @@ class DataCollector(Output):
     if not all([isinstance(val, str) for val in keys + chamber_keys + throat_keys + exit_keys]):
       raise ValueError("All Data_Collector keys must be strings")
       
-    for key in keys + chamber_keys + throat_keys + exit_keys:
+    for key in self._internal_keys:
       self[key] = list()
   
   def add_data(self, data: Output):
@@ -59,11 +66,38 @@ class DataCollector(Output):
     for key in self._keys:
       self[key].append(data[key])
     for key in self._chamber_keys: # First go through chamber products
-      try_add(key, "prod_c")
+      try_add("c_"+key, "prod_c")
     for key in self._throat_keys: # Then go through throat products
-      try_add(key, "prod_t")
+      try_add("t_"+key, "prod_t")
     for key in self._exit_keys: # Then go through exit products
       try_add(key, "prod_e")
+      
+  def to_csv(self, filename: str, keys:list=None, formatString="f"):
+    """
+    Writes all data to a csv, with the specified keys. If keys not given, uses all keys in order
+    :param filename: The path at which to open a csv and write to it. Overwrites existing files
+    :param keys: If None, will use all keys in object. Otherwise, a sorted list.
+    :param formatString: The string to python's string formatting utility for each value. Default 'f'. Could be like "10.4f" or similar
+    """
+    logging.info("Writing to CSV!")
+    if keys is None:
+      keys = sorted(self._internal_keys)
+    
+    with open(filename, "w") as file:
+      if len(keys) == 0:
+        logging.warning("Tried writing DataCollector object to CSV with no keys")
+        return
+      for key in keys:
+        file.write(key+",")
+      file.write("\n")
+      length = len(self[keys[0]])
+      if length == 0:
+        logging.debug("Writing DataCollector object to CSV with no values")
+      for i in range(length):
+        for key in keys:
+          file.write(("{:"+formatString+"},").format(self[key][i]))
+        file.write("\n")
+        
 
 try:
   import numpy as np

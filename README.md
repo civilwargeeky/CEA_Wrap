@@ -275,7 +275,7 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
   ```printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf)```
   Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
   
-  * `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for aqueous solution, (cr) for crystalline (solid), or (L) for liquid phase.
+  * `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for agglomerate, (cr) for crystalline (solid), or (L) for liquid phase.
   
   * `comment`: 56 char max, Human-readable name and additional information
   

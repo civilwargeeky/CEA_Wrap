@@ -1,25 +1,22 @@
 # CEA_Wrap
 A Python-Based wrapper for the NASA CEA Thermochemical Code
 
-# Upgrading from Version <1.5.0
-IF YOU UPGRADE AND YOUR VERSION IS <1.5.0, YOUR CUSTOM THERMO LIB WILL BE OVERWRITTEN
-
-Please make a copy of your thermo_spg.inp, place it in the new data directory, and recompile after upgrading
-
-As of 1.5.0, thermo_spg.inp and all other assets are kept in a data directory, rather than the package assets directory. This means that your custom thermo lib will no longer be overwritten when you upgrade
-
 # Installation Instructions
 We are now on [PyPi!](https://pypi.org/project/CEA-Wrap/)
 In a command prompt type ```pip install --upgrade CEA_Wrap``` to upgrade/install CEA_Wrap
-
-<s>Or you can click on "releases" on the right side of the main page and download the .zip file, then do ```pip install --upgrade [your zip file name].zip```</s>
-People mess this up, so I don't recommend it anymore
 
 You can import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
 
 ## Installation on Mac
 On mac, the installation script will attempt to compile the fortran executable on your system. Should it fail to do so, you will have to compile it manually.
 You can see a discussion from a successful user here: [Issue #1](https://github.com/civilwargeeky/CEA_Wrap/issues/1#issuecomment-1033918162)
+
+## Upgrading from Version <1.5.0
+If you upgrade and your version is <1.5.0, any custom thermo lib you have made will be overwritten
+
+Please make a copy of your thermo_spg.inp, place it in the new data directory, and recompile after upgrading
+
+As of 1.5.0, thermo_spg.inp and all other assets are kept in a data directory, rather than the package assets directory. This means that your custom thermo lib will no longer be overwritten when you upgrade
 
 # Examples
 Examples on basic use can be found in the "examples" directory. Feel free to download them and try them out!

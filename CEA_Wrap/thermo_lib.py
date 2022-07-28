@@ -177,6 +177,52 @@ def load_thermo_file(filename:str = None):
   logging.debug("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
   return materials
 
+def printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf):
+  """
+  Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib
+  Any entries which are longer than the allotted space results in an error
+  :param name: 18 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase
+    unless appended with (a) for aqueous solution, (cr) for crystalline (solid), or (L) for liquid phase.
+  :param comment: 62 char max, Human-readable name and additional information
+  :param atoms: 5 atom max, A dictionary of "atom symbol": number of atoms in molecule.
+    Format: {"atomic symbol":number of atoms, "atomic symbol" : number of atoms, etc.}
+    Example: H2O would be {"H": 2, "O": 1}
+    Special value is "E" which represents an electron for ionic compounds
+  :param isCond: True if condensed phase (non-gas), False otherwise
+  :param molWt: Molecular weight of molecule in g/mol or kg/kmol
+  :param hf: Heat of formation at 298.15 K, in J/mol
+  """
+  if len(name) > 18:
+    raise ValueError("Name field is {} characters long, which is more than 24".format(len(name)))
+  if len(comment) > 62:
+    raise ValueError("Name field is {} characters long, which is more than 24".format(len(name)))
+  if len(atoms) > 5:
+    raise ValueError("Got {} atoms in molecule. Can only support 5".format(len(atoms)))
+  atomString = "    0.00"*5 # Initialize with all the empty atom portions
+  for atom, numAtom in atoms.items():
+    if len(atom) > 2:
+      raise ValueError("Atom names must be 2 chars or less")
+    if numAtom > 99:
+      raise ValueError("Atoms must be less than 100")
+    if numAtom <= 0:
+      raise ValueError("Atoms must be greater than 0")
+    atomString = "{:<2}{:6.2f}".format(atom.upper(), numAtom) + atomString
+  atomString = atomString[:40] # Then truncate to 40 chars to remove extra empty atom portions
+  if len("{:13.5f}".format(molWt)) > 13:
+    raise ValueError("molecular weight has too many digits")
+  if len("{:15.5f}".format(hf)) > 15:
+    raise ValueError("heat of formation has too many digits")
+  
+  string = "{:<18}{:<62}\r\n 0        {:40} {:1}{: 13.5f}{: 15.5f}\r\n".format(
+    name,
+    comment,
+    atomString,
+    "1" if isCond else "0",
+    molWt,
+    hf,
+  )
+  print(string)
+  return string
 
 if __name__ == "__main__":
   load_thermo_file()

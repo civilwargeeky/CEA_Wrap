@@ -37,6 +37,17 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
   ```print_assets_directory()```
   Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
   
+  ```printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf)```
+  Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
+  `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for aqueous solution, (cr) for crystalline (solid), or (L) for liquid phase.
+  `comment`: 56 char max, Human-readable name and additional information
+  `atoms`: 5 atom max, A dictionary of "atom symbol": number of atoms in molecule.
+    Example: H2O would be {"H": 2, "O": 1}
+    Special value is "E" which represents an electron for ionic compounds
+  `isCond`: True if condensed phase (non-gas), False otherwise
+  `molWt`: Molecular weight of molecule in g/mol or kg/kmol
+  `hf`: Heat of formation at 298.15 K, in J/mol
+  
 ### DataCollector
   A DataCollector object will conveniently compile output from Problem outputs into list format. Example usage can be found in the "looping.py" example
   ```DataCollector(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[])```

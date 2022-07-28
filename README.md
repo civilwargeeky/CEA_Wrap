@@ -27,40 +27,6 @@ Examples on basic use can be found in the "examples" directory. Feel free to dow
 Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 
 # Documentation
-## Utilities
-  ```open_thermo_lib()```
-  Opens the default thermo library input file using the user's default .inp file viewer (should prompt if none)
-  
-  ```open_pdfs()```
-  Opens the attached NASA pdfs using the user's default pdf viewer
-  
-  ```print_assets_directory()```
-  Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
-  
-  ```printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf)```
-  Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
-  `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for aqueous solution, (cr) for crystalline (solid), or (L) for liquid phase.
-  `comment`: 56 char max, Human-readable name and additional information
-  `atoms`: 5 atom max, A dictionary of "atom symbol": number of atoms in molecule.
-    Example: H2O would be {"H": 2, "O": 1}
-    Special value is "E" which represents an electron for ionic compounds
-  `isCond`: True if condensed phase (non-gas), False otherwise
-  `molWt`: Molecular weight of molecule in g/mol or kg/kmol
-  `hf`: Heat of formation at 298.15 K, in J/mol
-  
-### DataCollector
-  A DataCollector object will conveniently compile output from Problem outputs into list format. Example usage can be found in the "looping.py" example
-  ```DataCollector(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[])```
-    `keys`: Also accepts list of arguments, these are keys such as 'cond' or 't_cp' or 'c_p'
-    `chamber_keys`: List of chamber species mol/mass fractions to be included in the output object. Ex: "H2O" or "CO2". The key in the ouptut will be the molecule name with "c_" prepended
-    `throat_keys`: List of nozzle throat species mol/mass fractions to be included. The key in the output will be the molecule name with "t_" prepended
-    `exit_keys`: List of nozzle exit species mol/mass fractions to be included. The key in the output will be the molecule name with nothing prepended.
-  
-  *Methods*
-  * `add_data(data)` - Data should be the output from Problem.run(). Appends the output of the keys specified in the initializer to the object
-  * `to_csv(filename, filename: str, keys:list=None, formatString="f"` - Writes the data to csv at **filename**, with the keys in **keys** (or all keys in this object if None)
-       using **formatString** to format the csv entries
-       
 
 ## Materials
   In order to run problems, you must create materials. `Materials` must be either Fuel or Oxidizer (alias: F or O) objects
@@ -298,3 +264,48 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
 ### Available Methods
 * `ThermoInterface.get_close_matches(name, [n])` - Gets close matches to a given material name. For example "Al(cr)" returns 'AL(cr)', 'ALN(cr)', 'Ag(cr)', 'W(cr)'. n influences the number of results returned, and is the maximum number of results returned.
 * `ThermoMaterial.defined_at(temp)` - Returns True if the material is specified at the given temperature, False otherwise. Materials specified at one temperature are actually allowed at that temperature +- 10K.
+
+## Utilities
+  ```open_thermo_lib()```
+  Opens the default thermo library input file using the user's default .inp file viewer (should prompt if none)
+  
+  ```open_pdfs()```
+  Opens the attached NASA pdfs using the user's default pdf viewer
+  
+  ```print_assets_directory()```
+  Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
+  
+  ```printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf)```
+  Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
+  
+  * `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for aqueous solution, (cr) for crystalline (solid), or (L) for liquid phase.
+  
+  * `comment`: 56 char max, Human-readable name and additional information
+  
+  * `atoms`: 5 atom max, A dictionary of "atom symbol": number of atoms in molecule.
+  
+    Example: H2O would be {"H": 2, "O": 1}
+    
+    Special value is "E" which represents an electron for ionic compounds
+    
+  * `isCond`: True if condensed phase (non-gas), False otherwise
+  
+  * `molWt`: Molecular weight of molecule in g/mol or kg/kmol
+  
+  * `hf`: Heat of formation at 298.15 K, in J/mol
+  
+### DataCollector
+  A DataCollector object will conveniently compile output from Problem outputs into list format. Example usage can be found in the "looping.py" example
+  
+  ```DataCollector(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[])```
+  
+* `keys`: Also accepts list of arguments, these are keys such as 'cond' or 't_cp' or 'c_p'
+* `chamber_keys`: List of chamber species mol/mass fractions to be included in the output object. Ex: "H2O" or "CO2". The key in the ouptut will be the molecule name with "c_" prepended
+* `throat_keys`: List of nozzle throat species mol/mass fractions to be included. The key in the output will be the molecule name with "t_" prepended
+* `exit_keys`: List of nozzle exit species mol/mass fractions to be included. The key in the output will be the molecule name with nothing prepended.
+  
+  *Methods*
+* `add_data(data)` - Data should be the output from Problem.run(). Appends the output of the keys specified in the initializer to the object
+* `to_csv(filename, filename: str, keys:list=None, formatString="f"` - Writes the data to csv at **filename**, with the keys in **keys** (or all keys in this object if None)
+     using **formatString** to format the csv entries
+       

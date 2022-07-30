@@ -495,18 +495,14 @@ class RocketProblem(Problem):
       raise ValueError("Can only specify fac ac/at or fac ma, not both")
     
     
-    analysis_type = analysis_type.lower() # ensure case because we check for frozen by literal
+     # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
     self.nozzle_ratio_value = pip if pip else (sup if sup else sub)
-    self.analysis_type = analysis_type # equilibrium or frozen
     self.fac_type = None; self.fac_value = None
     if fac_ac: self.set_fac_ac(fac_ac)
     if fac_ma: self.set_fac_ma(fac_ma)
+    self.set_analysis_type(analysis_type)
     
-    if "equilibrium" in analysis_type and "frozen" in analysis_type:
-      raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
-    if (fac_ac or fac_ma) and "frozen" in analysis_type:
-      raise ValueError("Rocket_Problem does not support combined finite area combustor and frozen calculations")
   
   
   def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value = sup
@@ -515,8 +511,21 @@ class RocketProblem(Problem):
   
   def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value = pip
   
-  def set_fac_ac(self, fac): self.fac_type = "ac/at"; self.fac_value = fac
-  def set_fac_ma(self, fac): self.fac_type = "mdot"; self.fac_value = fac
+  def set_analysis_type(self, analysis_type):
+    analysis_type = analysis_type.lower()
+    if "equilibrium" in analysis_type and "frozen" in analysis_type:
+      raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
+    if (self.fac_type) and "frozen" in analysis_type:
+      raise ValueError("Rocket_Problem does not support combined finite area combustor and frozen calculations")
+      
+    self.analysis_type = analysis_type
+  
+  def _set_fac_check(self): # Simple check to make sure we don't set this.
+    if "frozen" in self.analysis_type:
+      raise ValueError("Rocket_Problem does not support combined finite area combustor and frozen calculations")
+  def set_fac_ac(self, fac): self._set_fac_check(); self.fac_type = "ac/at"; self.fac_value = fac
+  def set_fac_ma(self, fac): self._set_fac_check(); self.fac_type = "mdot"; self.fac_value = fac
+  def unset_fac(self): self.fac_type = None; self.fac_value = None
   
   def get_prefix_string(self):
     toRet = []
@@ -689,7 +698,7 @@ class RocketProblem(Problem):
             out.f_mw = float(new_line[5])
             if out.f_m == 0: # If no condensed phase products, this becomes 0 because its the same as mw
               out.f_condensed = False
-              out.f_m = out.t_mw
+              out.f_m = out.f_mw
             else:
               out.f_condensed = True # has condensed phase products
             out.f_cp = float(new_line[6])

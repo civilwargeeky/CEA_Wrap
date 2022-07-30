@@ -131,8 +131,10 @@ For `RocketProblem(*, **kwargs)`
 * `.set_sub(sub)` - Sets subsonic area ratio
 * `.set_ae_at(sup)` - Sets supersonic area ratio
 * `.set_pip(pip)` - Sets pressure ratio
+* `.set_analysis_type(analysis)` - Sets analysis type
 * `.set_fac_ma(fac)` - Sets finite area combustor, with mass flow/area ratio
 * `.set_fac_ac(fac)` - Sets finite area combustor, with combustor/throat area ratio
+* `.unset_fac()` - Unsets finite area combustor
 
 ## Available Output Dictionary Keys:
 All Problem data objects are "Output" objects, which are similar to dictionaries, but can also be accessed with dot notation.

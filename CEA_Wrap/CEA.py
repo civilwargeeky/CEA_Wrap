@@ -480,7 +480,7 @@ class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ispfz ivacfz cffz"
     
-  def __init__(self, *args, sup:float=None, sub:float=None, ae_at:float=None, pip:float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, **kwargs):
+  def __init__(self, *args, sup=None, sub:float=None, ae_at=None, pip:float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, **kwargs):
     super().__init__(*args, **kwargs)
     
     if ae_at:
@@ -528,11 +528,16 @@ class RocketProblem(Problem):
   def unset_fac(self): self.fac_type = None; self.fac_value = None
   
   def get_prefix_string(self):
+    # enable using multiple area ratio for custom frozen point
+    if self.nozzle_ratio_value is not None:
+      if not isinstance(self.nozzle_ratio_value, list):
+        self.nozzle_ratio_value = [self.nozzle_ratio_value, ]
+      nozzle_str = "{:0.5f},"*len(self.nozzle_ratio_value)
     toRet = []
     toRet.append("{} {}".format(self.problem_type, self.analysis_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
-    toRet.append("   {} = {:0.5f}".format(self.nozzle_ratio_name, self.nozzle_ratio_value))
+    toRet.append("   {} = ".format(self.nozzle_ratio_name)+nozzle_str.format(*self.nozzle_ratio_value))
     if self.fac_type:
       toRet.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(toRet) + "\n"
@@ -562,10 +567,12 @@ class RocketProblem(Problem):
       
       # Float map, mapping columns because the mapping isn't always 1,2,3
       def flMap(splitline, key):
+        if self.nozzle_ratio_value is not None:
+          end_col = 2+len(self.nozzle_ratio_value)
         if has_fac: # If finite area combustor, we have more columns
           mapping = {"c": 1, "f": 2, "t": 3, "e": 4}
         else: # Otherwise, normal
-          mapping = {"c": 1, "t": 2, "e": 3}
+          mapping = {"c": 1, "t": 2, "e": end_col}
         return float(splitline[mapping[key]])
       
       for line in file:
@@ -648,6 +655,8 @@ class RocketProblem(Problem):
                 out.isp = float(split[3])/9.81
     
     try:
+      if self.nozzle_ratio_value is not None:
+        end_col = 2 + len(self.nozzle_ratio_value)
       chamber_count = 1
       if has_fac:
         fac_count = 2
@@ -656,7 +665,7 @@ class RocketProblem(Problem):
       else:
         fac_count = -1
         throat_count = 2
-        exit_count = 3
+        exit_count = end_col
       
       with open(self.filename+".plt", errors='ignore') as file:
         for counter, line in enumerate(file):

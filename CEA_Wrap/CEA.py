@@ -478,7 +478,7 @@ class HPProblem(Problem):
 
 class RocketProblem(Problem):
   problem_type = "rocket"
-  plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran"
+  plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ispfz ivacfz cffz"
     
   def __init__(self, *args, sup:float=None, sub:float=None, ae_at:float=None, pip:float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, **kwargs):
     super().__init__(*args, **kwargs)
@@ -740,6 +740,9 @@ class RocketProblem(Problem):
             out.ivac = float(new_line[3])/9.81
             out.cf = float(new_line[9])
             
+            out.ispfz = float(new_line[17]) / 9.81
+            out.ivacfz = float(new_line[18]) / 9.81
+            out.cffz = float(new_line[19])
             # Section Properties  
             out.p = float(new_line[0])
             out.t = float(new_line[1])

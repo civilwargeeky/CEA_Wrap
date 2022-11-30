@@ -480,7 +480,7 @@ class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ispfz ivacfz cffz"
     
-  def __init__(self, *args, sup=None, sub:float=None, ae_at=None, pip:float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, **kwargs):
+  def __init__(self, *args, sup=None, sub=None, ae_at=None, pip=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, **kwargs):
     super().__init__(*args, **kwargs)
     
     if ae_at:
@@ -498,6 +498,9 @@ class RocketProblem(Problem):
      # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
     self.nozzle_ratio_value = pip if pip else (sup if sup else sub)
+    if self.nozzle_ratio_value is not None:
+      if not isinstance(self.nozzle_ratio_value, list):
+        self.nozzle_ratio_value = [self.nozzle_ratio_value, ]
     self.fac_type = None; self.fac_value = None
     if fac_ac: self.set_fac_ac(fac_ac)
     if fac_ma: self.set_fac_ma(fac_ma)
@@ -529,10 +532,7 @@ class RocketProblem(Problem):
   
   def get_prefix_string(self):
     # enable using multiple area ratio for custom frozen point
-    if self.nozzle_ratio_value is not None:
-      if not isinstance(self.nozzle_ratio_value, list):
-        self.nozzle_ratio_value = [self.nozzle_ratio_value, ]
-      nozzle_str = "{:0.5f},"*len(self.nozzle_ratio_value)
+    nozzle_str = "{:0.5f}," * len(self.nozzle_ratio_value)
     toRet = []
     toRet.append("{} {}".format(self.problem_type, self.analysis_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
@@ -748,7 +748,10 @@ class RocketProblem(Problem):
             out.isp = float(new_line[2])/9.81
             out.ivac = float(new_line[3])/9.81
             out.cf = float(new_line[9])
-            
+
+            out.ispfz = float(new_line[17]) / 9.81
+            out.ivacfz = float(new_line[18]) / 9.81
+            out.cffz = float(new_line[19])
             out.ispfz = float(new_line[17]) / 9.81
             out.ivacfz = float(new_line[18]) / 9.81
             out.cffz = float(new_line[19])

@@ -1,4 +1,4 @@
-This project is a fork of CEA_Wrap from civilwargeeky. The original source is hosted on Github here.
+This project is a fork of CEA_Wrap from [civilwargeeky](https://github.com/civilwargeeky). The original source is hosted on Github [here](https://github.com/civilwargeeky/CEA_Wrap).
 The project has been modified to better include frozen properties of Rocket Problems and to allow for custom frozen point by allowing mulitple expansion ratios
 
 # CEA_Wrap

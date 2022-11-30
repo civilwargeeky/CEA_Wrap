@@ -1,3 +1,6 @@
+This project is a fork of CEA_Wrap from civilwargeeky. The original source is hosted on Github here.
+The project has been modified to better include frozen properties of Rocket Problems and to allow for custom frozen point by allowing mulitple expansion ratios
+
 # CEA_Wrap
 A Python-Based wrapper for the NASA CEA Thermochemical Code
 
@@ -244,6 +247,10 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `*mach` - mach number at exhaust
 * `o_f` - oxidizer/fuel weight ratio
 * `phi` - weight-based equivalence ratio of oxidizer/fuel
+* `ispfz` - ideal isp (ambient pressure = exit pressure) for frozen problem, s
+* `ivacfz` - vacuum isp for frozen problem, s
+* `cffz` - ideally expanded thrust coefficient for frozen problem
+
 
 ## Using ThermoInterface
 Provided with this library is an interface to the thermo_spg.inp file provided with the library. 

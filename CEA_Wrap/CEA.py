@@ -499,7 +499,6 @@ class RocketProblem(Problem):
      # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
     self.nozzle_ratio_value = pip if pip else (sup if sup else sub)
-    self.return_only_last = return_only_last
     if custom_nfz_exp is not None and "frozen" in analysis_type:
       if custom_nfz_exp > self.nozzle_ratio_value:
         raise ValueError("nozzle ratio for the frozen point must be lower than the outlet nozzle ratio")

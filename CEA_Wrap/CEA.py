@@ -478,9 +478,9 @@ class HPProblem(Problem):
 
 class RocketProblem(Problem):
   problem_type = "rocket"
-  plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ispfz ivacfz cffz"
+  plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran"
     
-  def __init__(self, *args, sup: float=None, sub: float=None, ae_at: float=None, pip: float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, nfz: int=None, custom_nfz_exp: float=None,
+  def __init__(self, *args, sup: float=None, sub: float=None, ae_at: float=None, pip: float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, nfz: int=None, custom_nfz: float=None,
                **kwargs):
     super().__init__(*args, **kwargs)
     
@@ -494,21 +494,16 @@ class RocketProblem(Problem):
       raise ValueError("Can only specify area ratio or pressure ratio, not both")
     if fac_ac and fac_ma:
       raise ValueError("Can only specify fac ac/at or fac ma, not both")
-    
-    self.end_col = 3
+
      # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
-    self.nozzle_ratio_value = pip if pip else (sup if sup else sub)
-    if custom_nfz_exp is not None and "frozen" in analysis_type:
-      if custom_nfz_exp > self.nozzle_ratio_value:
-        raise ValueError("nozzle ratio for the frozen point must be lower than the outlet nozzle ratio")
-      custom_nfz_exp = [custom_nfz_exp,]
-      self.nozzle_ratio_value = [self.nozzle_ratio_value,]
-      self.nozzle_ratio_value = custom_nfz_exp + self.nozzle_ratio_value
-    self.fac_type = None; self.fac_value = None
+    self.nozzle_ratio_value = [pip if pip else (sup if sup else sub), ]
+    self.fac_type = None
+    self.fac_value = None
+    self.analysis_type = None  # Specify before calling
     if fac_ac: self.set_fac_ac(fac_ac)
     if fac_ma: self.set_fac_ma(fac_ma)
-    self.set_analysis_type(analysis_type, nfz)
+    self.set_analysis_type(analysis_type, nfz, custom_nfz=custom_nfz)
     
   
   
@@ -518,32 +513,51 @@ class RocketProblem(Problem):
   
   def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value = pip
   
-  def set_analysis_type(self, analysis_type, nfz=None):
+  def set_analysis_type(self, analysis_type, nfz=None, custom_nfz=None):
     analysis_type = analysis_type.lower()
-    if isinstance(nfz, int):
-      analysis_type = analysis_type + "nfz={}".format(nfz)
+    if nfz is not None and custom_nfz is not None:
+      raise ValueError("cannot specify both nfz and custom_nfz. nfz= will be set automatically if custom_nfz is set")
     if "equilibrium" in analysis_type and "frozen" in analysis_type:
       raise ValueError("Rocket_Problem does not support combined equilibrium-frozen calculations")
-    if (self.fac_type) and "frozen" in analysis_type:
+    if self.fac_type and "frozen" in analysis_type:
       raise ValueError("Rocket_Problem does not support combined finite area combustor and frozen calculations")
-      
+
+    # Anytime we change analysis type, reset the nozzle ratio to be only the last value
+    self.nozzle_ratio_value = self.nozzle_ratio_value[-1:]  # List with only the last value
+    if "frozen" in analysis_type:
+      if custom_nfz is not None:
+        nfz = 3 # 3 is the column for the custom nfz point
+        if custom_nfz > self.nozzle_ratio_value[-1]:
+          raise ValueError("nozzle ratio for the frozen point must be lower than the outlet nozzle ratio")
+        self.nozzle_ratio_value.insert(0, custom_nfz)  # Add another column at the point we want to freeze
+
+      if isinstance(nfz, int):
+        if "nfz" in analysis_type:  # If they already had "nfz" in analysis_type, let them know
+          raise ValueError("already had 'nfz=' in analysis type. Cannot specify multiple frozen locations")
+        analysis_type = analysis_type + " nfz={}".format(nfz)
+      # Modify plot keys to use frozen values
+      toPut = type(self).plt_keys # Get copy from class instance
+      for orig in ("isp", "ivac", "cf", "mach"):
+        toPut = toPut.replace(" "+orig, " "+orig+"fz", 1) # Add 'fz' to each of these properties
+      self.plt_keys = toPut
+    else:
+      self.plt_keys = type(self).plt_keys # Get new copy from class instance
     self.analysis_type = analysis_type
   
   def _set_fac_check(self): # Simple check to make sure we don't set this.
-    if "frozen" in self.analysis_type:
+    if self.analysis_type is not None and "frozen" in self.analysis_type:
       raise ValueError("Rocket_Problem does not support combined finite area combustor and frozen calculations")
   def set_fac_ac(self, fac): self._set_fac_check(); self.fac_type = "ac/at"; self.fac_value = fac
   def set_fac_ma(self, fac): self._set_fac_check(); self.fac_type = "mdot"; self.fac_value = fac
   def unset_fac(self): self.fac_type = None; self.fac_value = None
   
   def get_prefix_string(self):
-    # enable using multiple area ratio for custom frozen point
-    nozzle_str = "{:0.5f}," * len(self.nozzle_ratio_value)
-    toRet = []
+    toRet = list()
     toRet.append("{} {}".format(self.problem_type, self.analysis_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
-    toRet.append("   {} = ".format(self.nozzle_ratio_name)+nozzle_str.format(*self.nozzle_ratio_value))
+    # enable using multiple area ratio for custom frozen point
+    toRet.append("   {} = ".format(self.nozzle_ratio_name) + ",".join("{:0.5f}".format(rat) for rat in self.nozzle_ratio_value))
     if self.fac_type:
       toRet.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(toRet) + "\n"
@@ -706,10 +720,7 @@ class RocketProblem(Problem):
             out.f_isp = float(new_line[2])/9.81
             out.f_ivac = float(new_line[3])/9.81
             out.f_cf = float(new_line[9])
-            
-            out.f_ispfz = float(new_line[17]) / 9.81
-            out.f_ivacfz = float(new_line[18]) / 9.81
-            out.f_cffz = float(new_line[19])
+
             # Section Properties  
             out.f_p = float(new_line[0])
             out.f_t = float(new_line[1])
@@ -732,10 +743,6 @@ class RocketProblem(Problem):
             out.t_isp = float(new_line[2])/9.81
             out.t_ivac = float(new_line[3])/9.81
             out.t_cf = float(new_line[9])
-            
-            out.t_ispfz = float(new_line[17]) / 9.81
-            out.t_ivacfz = float(new_line[18]) / 9.81
-            out.t_cffz = float(new_line[19])
             
             # Section Properties  
             out.t_p = float(new_line[0])
@@ -763,9 +770,6 @@ class RocketProblem(Problem):
             out.ivac = float(new_line[3])/9.81
             out.cf = float(new_line[9])
 
-            out.ispfz = float(new_line[17]) / 9.81
-            out.ivacfz = float(new_line[18]) / 9.81
-            out.cffz = float(new_line[19])
             # Section Properties  
             out.p = float(new_line[0])
             out.t = float(new_line[1])

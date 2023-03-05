@@ -1,6 +1,3 @@
-This project is a fork of CEA_Wrap from [civilwargeeky](https://github.com/civilwargeeky). The original source is hosted on Github [here](https://github.com/civilwargeeky/CEA_Wrap).
-The project has been modified to better include frozen properties of Rocket Problems and to allow for custom frozen point by allowing mulitple expansion ratios
-
 # CEA_Wrap
 A Python-Based wrapper for the NASA CEA Thermochemical Code
 
@@ -128,13 +125,15 @@ For `RocketProblem(*, **kwargs)`
   * fac_ac can be specified later with .set_fac_ac
   * Cannot be specified at the same time as fac_ma
 * `analysis_type`: default "equilibrium", whether to use equilibrium reactions or frozen. For using frozen specify "frozen" or "frozen nfz=1" for frozen at the chamber or "frozen nfz=2" for frozen at the throat
+* `nfz`: default None, If `analysis_type` is "frozen", this will set the frozen location to the given point. 1 for chamber, 2 for throat
+* `custom_nfz`: default None, If `analysis_type` is "frozen", this is the position within the nozzle that composition will be frozen at. Uses the same unit as ae/at or pip. Example: custom_nfz=2 to freeze composition at ae/at=2
 
 ### RocketProblem Methods
 * `.set_sup(sup)` - Sets supersonic area ratio
 * `.set_sub(sub)` - Sets subsonic area ratio
 * `.set_ae_at(sup)` - Sets supersonic area ratio
 * `.set_pip(pip)` - Sets pressure ratio
-* `.set_analysis_type(analysis)` - Sets analysis type
+* `.set_analysis_type(analysis, nfz=None, custom_nfz=None)` - Sets analysis type, with optional frozen specifications as above
 * `.set_fac_ma(fac)` - Sets finite area combustor, with mass flow/area ratio
 * `.set_fac_ac(fac)` - Sets finite area combustor, with combustor/throat area ratio
 * `.unset_fac()` - Unsets finite area combustor
@@ -247,10 +246,6 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `*mach` - mach number at exhaust
 * `o_f` - oxidizer/fuel weight ratio
 * `phi` - weight-based equivalence ratio of oxidizer/fuel
-* `ispfz` - ideal isp (ambient pressure = exit pressure) for frozen problem, s
-* `ivacfz` - vacuum isp for frozen problem, s
-* `cffz` - ideally expanded thrust coefficient for frozen problem
-
 
 ## Using ThermoInterface
 Provided with this library is an interface to the thermo_spg.inp file provided with the library. 

@@ -177,7 +177,7 @@ def load_thermo_file(filename:str = None):
   logging.debug("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
   return materials
 
-def printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf):
+def print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf):
   """
   Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib
   Any entries which are longer than the allotted space results in an error
@@ -223,6 +223,13 @@ def printSimpleThermoLibLine(name, comment, atoms, isCond, molWt, hf):
   )
   print(string)
   return string
+
+def printSimpleThermoLibLine(*args, **kwargs):
+  import warnings
+  warnings.warn("This spelling of the function will be removed in a future update \n"
+                "Please use .print_simple_thermo_lib_line() in the future",
+                DeprecationWarning)
+  return print_simple_thermo_lib_line(*args, **kwargs)
 
 if __name__ == "__main__":
   load_thermo_file()

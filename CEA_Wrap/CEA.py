@@ -510,7 +510,7 @@ class RocketProblem(Problem):
 
      # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
-    self.nozzle_ratio_value = [pip if pip else (sup if sup else sub), ]
+    self.nozzle_ratio_value = [pip if pip else (sup if sup else sub), ] # 1-element array
     self.fac_type = None
     self.fac_value = None
     self.analysis_type = None  # Specify before calling
@@ -520,11 +520,11 @@ class RocketProblem(Problem):
     
   
   
-  def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value = sup
-  def set_sub(self, sub): self.nozzle_ratio_name = "sub"; self.nozzle_ratio_value = sub
+  def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value[-1] = sup
+  def set_sub(self, sub): self.nozzle_ratio_name = "sub"; self.nozzle_ratio_value[-1] = sub
   def set_ae_at(self, ae_at): self.set_sup(ae_at)
   
-  def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value = pip
+  def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value[-1] = pip
   
   def set_analysis_type(self, analysis_type, nfz=None, custom_nfz=None):
     analysis_type = analysis_type.lower()
@@ -592,10 +592,7 @@ class RocketProblem(Problem):
       
       has_fac = bool(self.fac_type) # If has finite area combustor
       ch_th = 3 if has_fac else 2
-      if isinstance(self.nozzle_ratio_value, list):
-        end_col = ch_th + len(self.nozzle_ratio_value)
-      else:
-        end_col = ch_th + 1
+      end_col = ch_th + len(self.nozzle_ratio_value)
       
       out.prod_c = Output()
       out.prod_t = Output()

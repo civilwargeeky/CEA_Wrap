@@ -1,6 +1,7 @@
 import subprocess, re
 import logging as _logging
 import platform
+import warnings
 from typing import List, Union
 from .utils import _get_data_file, cleanup_package_install, move_file_if_changed, Output
 from .thermo_lib import ThermoInterface
@@ -81,6 +82,9 @@ class Material:
     
   def is_wt_percent(self) -> bool: # Helper function for a material being in wt_percent or mols
     return self.wt_percent is not None
+
+  def is_fuel(self) -> bool: # Assume all materials are either fuels or oxidizers. Must be overriden
+    raise NotImplementedError("Material is neither fuel or oxidizer. Subclasses must override this method")
     
   def get_CEA_str(self) -> str:
     # Specify whether to use the str/val for weight or mols.
@@ -102,10 +106,14 @@ class Material:
       
 class Fuel(Material):
   output_type = "fuel"
+  def is_fuel(self) -> bool:
+    return True
 F = Fuel # Alias
 
 class Oxidizer(Material):
   output_type = "ox"
+  def is_fuel(self) -> bool:
+    return False
 O = Oxidizer # Alias
 
 ## Plan: Can also have composite Fuel/Oxidizer made up of percentages of other components
@@ -243,15 +251,20 @@ class Problem:
     # If the first element has a wt_percent, then we check that all elements have a wt_percent
     if not all([(mat.is_mols() if material_list[0].is_mols() else mat.is_wt_percent()) for mat in material_list]):
       raise ValueError("all materials must use wt percent or mol ratio, not a mixture of both")
-      
-    fuels = list(filter(lambda x: isinstance(x, Fuel), material_list))
-    oxidizers = list(filter(lambda x: isinstance(x, Oxidizer), material_list))
+
+    if any((type(x) == Material) for x in material_list):
+      raise ValueError("tried running problem with base Material. All Material inputs must be Fuel or Oxidizer")
+
+    fuels = list(filter(lambda x: x.is_fuel(), material_list))
+    oxidizers = list(filter(lambda x: not x.is_fuel(), material_list))
     
     # Here we check for monopropellant cases. In a monopropellant case, you must specify only fuels and an o_f of 0 or you get weird results
-    if len(fuels) == 0 and len(oxidizers) > 0:
+    if len(fuels) == 0 and len(oxidizers) == 1:
       raise ValueError("Monopropellant problems must only specify fuels, not oxidizers")
     if len(oxidizers) == 0 and (self.ratio_name != "o/f" or self.ratio_value != 0):
-      raise ValueError("Monopropellant problems must be run with o/f of 0")
+      raise ValueError("Monopropellant/all-fuel problems must be run with o/f of 0")
+    if len(fuels) == 0:  # otherwise, if we have no fuels but multiple oxidizers, more general error
+      raise ValueError("Must specify at least one fuel")
   
     with open(self.filename+".inp", "w") as file:
       file.write("problem ")

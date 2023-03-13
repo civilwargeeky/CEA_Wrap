@@ -107,6 +107,9 @@ Functions off of the existing material list, so call this after setting material
 * `.set_phi(phi)` - Sets equivalence ratio
 * `.set_r_eq(r_eq)` - Sets valence equivalence ratio
 
+## Detonation Problem Constructor Additional Parameters:
+**WARNING**: As far as I am aware, CEA is incapable of performing detonation calculations with condensed phase (solid) reactants. It will only handle gaseous reactants
+
 ## Rocket Problem Constructor Additional Parameters:
 For `RocketProblem(*, **kwargs)`
 * `sup`: default 1, supersonic exit area/throat area ratio

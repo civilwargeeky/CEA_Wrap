@@ -14,6 +14,8 @@ _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 cleanup_package_install()
 
 CEA_LOCATION = _get_data_file(_BASE_CEA) # Get data file after cleanup because location may be different depending on availability
+OPTIONS_TEMP_UNITS = ["k", "r", "c", "f"] # options for temperature units
+OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
 
 try:
   for file in ["thermo.lib", "trans.lib"]:
@@ -28,7 +30,8 @@ except PermissionError as e:
 ThermoInterface.load()
 
 class Material:
-  output_type = None # MUST BE SPECIFIED IN SUBCLASSES
+  output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
+  is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overriden
   # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True 
@@ -83,9 +86,10 @@ class Material:
   def is_wt_percent(self) -> bool: # Helper function for a material being in wt_percent or mols
     return self.wt_percent is not None
 
-  def is_fuel(self) -> bool: # Assume all materials are either fuels or oxidizers. Must be overriden
-    raise NotImplementedError("Material is neither fuel or oxidizer. Subclasses must override this method")
-    
+  def get_CEA_name_wt(self, wt_or_mol: str, amount: float) -> str:
+    """ Gives the actual line put into .inp files, minus potential hf strings or chemical composition """
+    return "   {}={} {}={:0.5f}  t,k={:0.5f}".format(self.output_type, self.name, wt_or_mol, amount, self.temp)
+
   def get_CEA_str(self) -> str:
     # Specify whether to use the str/val for weight or mols.
     name, ratio = "wt" if self.wt_percent is not None else "mol", self.wt_percent if self.wt_percent is not None else self.mols
@@ -94,7 +98,7 @@ class Material:
     elif ratio == 0: # This allows us to not include materials that are set to 0 percent
       return ""
     else:
-      string = "   {}={} {}={:0.5f}  t,k={:0.5f}".format(self.output_type, self.name, name, ratio, self.temp)
+      string = self.get_CEA_name_wt(name, ratio)
       if self.hf:
         string += " h,kj/mol={:0.5f}".format(self.hf)
       if self.chemical_composition:
@@ -106,14 +110,14 @@ class Material:
       
 class Fuel(Material):
   output_type = "fuel"
-  def is_fuel(self) -> bool:
-    return True
+  is_fuel = True
+
 F = Fuel # Alias
 
 class Oxidizer(Material):
   output_type = "ox"
-  def is_fuel(self) -> bool:
-    return False
+  is_fuel = False
+
 O = Oxidizer # Alias
 
 ## Plan: Can also have composite Fuel/Oxidizer made up of percentages of other components
@@ -179,7 +183,9 @@ class Problem:
     self.massf = massf
     self.materials = materials
     self.pressure = pressure
+    self.pressure_units = None
     self.set_pressure_units(pressure_units)
+    self.filename = None
     self.set_filename(filename)
     
     # Check against thermo file for these to prevent errors
@@ -213,9 +219,8 @@ class Problem:
   
   def set_pressure_units(self, pressure_units: str):
     pressure_units = pressure_units.lower() # We only have a few options for pressure units
-    choices = ["bar", "atm", "psi", "mmh"]
-    if pressure_units not in choices:
-      raise ValueError("pressure unit must be in " + ", ".join(choices))
+    if pressure_units not in OPTIONS_PRES_UNITS:
+      raise ValueError("pressure unit must be in " + ", ".join(OPTIONS_PRES_UNITS))
     self.pressure_units = pressure_units
   
   def set_absolute_o_f(self) -> float:
@@ -255,8 +260,8 @@ class Problem:
     if any((type(x) == Material) for x in material_list):
       raise ValueError("tried running problem with base Material. All Material inputs must be Fuel or Oxidizer")
 
-    fuels = list(filter(lambda x: x.is_fuel(), material_list))
-    oxidizers = list(filter(lambda x: not x.is_fuel(), material_list))
+    fuels = list(filter(lambda x: x.is_fuel, material_list))
+    oxidizers = list(filter(lambda x: not x.is_fuel, material_list))
     
     # Here we check for monopropellant cases. In a monopropellant case, you must specify only fuels and an o_f of 0 or you get weird results
     if len(fuels) == 0 and len(oxidizers) == 1:
@@ -492,45 +497,44 @@ class HPProblem(Problem):
 
 class TPMaterial(Material):
   def __init__(self, parent):
-    p = parent
-    self.parent = p
-    self.output_type = self.parent.output_type
-    super().__init__(p.name, p.temp, p.wt_percent, p.mols, p.chemical_composition, p.hf)
-  
-  def is_fuel(self):
-    return self.parent.is_fuel()
-  
-  def get_CEA_str(self) -> str:
-    # This is just copy-paste from Material, but I removed the temperature-writing from the code
-    name, ratio = "wt" if self.wt_percent is not None else "mol", self.wt_percent if self.wt_percent is not None else self.mols
-    if ratio < 0:
-      raise ValueError("Cannot have {} with <0 {} percent!".format(self.name, name))
-    elif ratio == 0: # This allows us to not include materials that are set to 0 percent
-      return ""
-    else:
-      string = "   {}={} {}={:0.5f}".format(self.output_type, self.name, name, ratio)
-      if self.hf:
-        string += " h,kj/mol={:0.5f}".format(self.hf)
-      if self.chemical_composition:
-        string += " " + self.chemical_composition
-      return string + " \n" 
+    try:
+      p = parent
+      self.parent = p
+      self.output_type = self.parent.output_type
+      self.is_fuel = self.parent.is_fuel
+      super().__init__(p.name, p.temp, p.wt_percent, p.mols, p.chemical_composition, p.hf)
+    except AttributeError:
+      raise TypeError("TPMaterial must be derived from Material, but a '{}' object was supplied".format(type(parent)))
+
+  def get_CEA_name_wt(self, wt_or_mol: str, amount: float) -> str:
+    """ Like the superclass, but we don't supply a temperature per-input for TP problems """
+    return "   {}={} {}={:0.5f}".format(self.output_type, self.name, wt_or_mol, amount)
 
 class TPProblem(HPProblem):
   problem_type = "tp"
   
   def __init__(self, *args, 
     temperature=298, # Reaction temperature, in Kelvin
+    temperature_units="k", # units for temperature
     **kwargs
   ):
     super().__init__(*args, **kwargs)
       
     self.temperature = temperature
-  
+    self.temperature_units = None
+    self.set_temperature_units(temperature_units)
+
+  def set_temperature_units(self, temperature_units: str):
+    temperature_units = temperature_units.lower()  # We only have a few options for pressure units
+    if temperature_units not in OPTIONS_TEMP_UNITS:
+      raise ValueError("pressure unit must be in " + ", ".join(OPTIONS_TEMP_UNITS))
+    self.temperature_units = temperature_units
+
   def get_prefix_string(self):
     toRet = []
     toRet.append("{}".format(self.problem_type))
     toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
-    toRet.append("   t(k) = {:0.5f}".format(self.temperature))
+    toRet.append("   t({}) = {:0.5f}".format(self.temperature_units, self.temperature))
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
     return "\n".join(toRet) + "\n"
   

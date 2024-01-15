@@ -523,7 +523,9 @@ class TPProblem(HPProblem):
     self.temperature = temperature
     self.temperature_units = None
     self.set_temperature_units(temperature_units)
-
+  
+  def set_temperature(self, temperature: float): self.temperature = temperature
+  
   def set_temperature_units(self, temperature_units: str):
     temperature_units = temperature_units.lower()  # We only have a few options for pressure units
     if temperature_units not in OPTIONS_TEMP_UNITS:

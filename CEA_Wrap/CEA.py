@@ -327,6 +327,7 @@ class Problem:
   def get_prefix_string(self) -> str:
     raise NotImplementedError()
 
+
 class DetonationProblem(Problem):
   problem_type = "det"
   plt_keys = "p t h mw cp gammas phi vel mach rho son cond pran"
@@ -488,6 +489,55 @@ class HPProblem(Problem):
     out.gamma = out.gammas*-out.dLV_dLP_t
     
     return out
+
+class TPMaterial(Material):
+  def __init__(self, parent):
+    p = parent
+    self.parent = p
+    self.output_type = self.parent.output_type
+    super().__init__(p.name, p.temp, p.wt_percent, p.mols, p.chemical_composition, p.hf)
+  
+  def is_fuel(self):
+    return self.parent.is_fuel()
+  
+  def get_CEA_str(self) -> str:
+    # This is just copy-paste from Material, but I removed the temperature-writing from the code
+    name, ratio = "wt" if self.wt_percent is not None else "mol", self.wt_percent if self.wt_percent is not None else self.mols
+    if ratio < 0:
+      raise ValueError("Cannot have {} with <0 {} percent!".format(self.name, name))
+    elif ratio == 0: # This allows us to not include materials that are set to 0 percent
+      return ""
+    else:
+      string = "   {}={} {}={:0.5f}".format(self.output_type, self.name, name, ratio)
+      if self.hf:
+        string += " h,kj/mol={:0.5f}".format(self.hf)
+      if self.chemical_composition:
+        string += " " + self.chemical_composition
+      return string + " \n" 
+
+class TPProblem(HPProblem):
+  problem_type = "tp"
+  
+  def __init__(self, *args, 
+    temperature=298, # Reaction temperature, in Kelvin
+    **kwargs
+  ):
+    super().__init__(*args, **kwargs)
+      
+    self.temperature = temperature
+  
+  def get_prefix_string(self):
+    toRet = []
+    toRet.append("{}".format(self.problem_type))
+    toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
+    toRet.append("   t(k) = {:0.5f}".format(self.temperature))
+    toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
+    return "\n".join(toRet) + "\n"
+  
+  def make_input_file(self, material_list: List[Material]): # chamber conditions and materials list
+    # Here we convert all the materials to TPMaterials before calling the main function, so that each one doesn't report temperature
+    new_material_list = [TPMaterial(material) for material in material_list]
+    return super().make_input_file(new_material_list)
 
 class RocketProblem(Problem):
   problem_type = "rocket"

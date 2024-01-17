@@ -17,17 +17,18 @@ CEA_LOCATION = _get_data_file(_BASE_CEA) # Get data file after cleanup because l
 OPTIONS_TEMP_UNITS = ["k", "r", "c", "f"] # options for temperature units
 OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
 
-try:
-  for file in ["thermo.lib", "trans.lib"]:
-    pack_file = _get_data_file(file)
-    move_file_if_changed(file, pack_file)
-except PermissionError as e:
-  logging.error("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
-  logging.error("---- Is your current directory system32 or another protected directory? ----")
-  raise e from None
-
-# Load our interface to all the ThermoMaterials
-ThermoInterface.load()
+def reload_thermo_lib():
+  try:
+    for file in ["thermo.lib", "trans.lib"]:
+      pack_file = _get_data_file(file)
+      move_file_if_changed(file, pack_file)
+  except PermissionError as e:
+    logging.error("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
+    logging.error("---- Is your current directory system32 or another protected directory? ----")
+    raise e from None
+  # Load our interface to all the ThermoMaterials
+  ThermoInterface.load()
+reload_thermo_lib() # Call this immediately
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
@@ -267,7 +268,7 @@ class Problem:
     if len(fuels) == 0 and len(oxidizers) == 1:
       raise ValueError("Monopropellant problems must only specify fuels, not oxidizers")
     if len(oxidizers) == 0 and (self.ratio_name != "o/f" or self.ratio_value != 0):
-      raise ValueError("Monopropellant/all-fuel problems must be run with o/f of 0")
+      raise ValueError("Monopropellant/all-fuel problems must be run with o/f of 0 (set o_f=0)")
     if len(fuels) == 0:  # otherwise, if we have no fuels but multiple oxidizers, more general error
       raise ValueError("Must specify at least one fuel")
   

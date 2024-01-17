@@ -11,3 +11,4 @@ cea2.f
 cea.inc
 /writeElem.py
 *.bat
+!thermo_lib_recompile.bat

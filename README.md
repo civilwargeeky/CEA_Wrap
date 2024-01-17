@@ -309,6 +309,12 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
   
   * `temperature`: Temperature that the molecule is specified at, Kelvin
   
+  ```reload_thermo_lib()```
+  Moves the thermo and transport libs from your assets directory (if they have changed) and reloads ThermoInterface from the thermo_spg.inp in your assets directory
+  Use this if you have recompiled your thermo lib but do not want to restart python.
+  
+  Note: This is actually defined in CEA.py, not utils.py
+  
 ### DataCollector
   A DataCollector object will conveniently compile output from Problem outputs into list format. Example usage can be found in the "looping.py" example
   
@@ -323,4 +329,14 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
 * `add_data(data)` - Data should be the output from Problem.run(). Appends the output of the keys specified in the initializer to the object
 * `to_csv(filename, filename: str, keys:list=None, formatString="f"` - Writes the data to csv at **filename**, with the keys in **keys** (or all keys in this object if None)
      using **formatString** to format the csv entries
-       
+
+## Adding materials/recompiling the thermo lib (advanced usage)
+  
+  You can add new molecules by modifying your thermo_spg.inp file and then recompiling the thermo lib.
+  1. Find the location of your thermo_spg.inp file by using print_assets_directory()
+  1. Open thermo_spg.inp in a text editor.
+  1. Scroll to the bottom
+  1. You can use print_simple_thermo_lib_line() to create a simple entry in the format of other reactants
+  1. Add your entry below the other entries but above "END REACTANTS". Ensure your entry has similar spacing to existing entries
+  1. To recompile your thermo lib, either use the "thermo_lib_recompile" batch file or run "FCEA2" and type "thermo_spg"
+  1. If you have a python kernel open, you should now restart it or use the "reload_thermo_lib()" function to reload the thermo lib used.

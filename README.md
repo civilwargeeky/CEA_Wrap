@@ -286,24 +286,28 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
   ```print_assets_directory()```
   Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
   
-  ```print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf)```
+  ```print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf, temperature=298.15)```
   Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
   
   * `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for agglomerate, (cr) for crystalline (solid), or (L) for liquid phase.
   
   * `comment`: 56 char max, Human-readable name and additional information
   
-  * `atoms`: 5 atom max, A dictionary of "atom symbol": number of atoms in molecule.
+  * `atoms`: 5 atom max, A dictionary of "atomic symbol": number of atoms in molecule.
   
-    Example: H2O would be {"H": 2, "O": 1}
+    Example: Water, "H2O", would be {"H": 2, "O": 1}
     
-    Special value is "E" which represents an electron for ionic compounds
+    Complex Example: Lead Acetate, "Pb(C2H3O2)2", would be {"Pb": 1, "C": 4, "H": 6, "O": 4}. Note that the C, H, and O are doubled because they are the *sum* of atoms in the molecule
     
-  * `isCond`: True if condensed phase (non-gas), False otherwise
+    Note: "E" is a special value which represents an electron for ionic compounds. You can have negative amounts of "E" to indicate positively charged atoms
+    
+  * `isCond`: "Is Condensed?" True if the material is a solid or liquid, False if it is a gas.
   
   * `molWt`: Molecular weight of molecule in g/mol or kg/kmol
   
-  * `hf`: Heat of formation at 298.15 K, in J/mol
+  * `hf`: Assigned Enthalpy of material at temperature specified. J/mol. If temperature=298.15K, this is the Heat of Formation.
+  
+  * `temperature`: Temperature that the molecule is specified at, Kelvin
   
 ### DataCollector
   A DataCollector object will conveniently compile output from Problem outputs into list format. Example usage can be found in the "looping.py" example

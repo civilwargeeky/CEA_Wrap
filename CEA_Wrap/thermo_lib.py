@@ -177,7 +177,7 @@ def load_thermo_file(filename:str = None):
   logging.debug("Processed {} materials in {:0.4f} s ==> {:0.2f} materials/s".format(len(materials), elapsed, len(materials)/elapsed))
   return materials
 
-def print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf):
+def print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf, temperature=298.150):
   """
   Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib
   Any entries which are longer than the allotted space results in an error
@@ -191,22 +191,25 @@ def print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf):
   :param isCond: True if condensed phase (non-gas), False otherwise
   :param molWt: Molecular weight of molecule in g/mol or kg/kmol
   :param hf: Heat of formation at 298.15 K, in J/mol
+  :param temperature: Deafult 298.150, the temperature that these heats of formation apply to.
   """
   if len(name) > 18:
-    raise ValueError("Name field is {} characters long, which is more than 24".format(len(name)))
+    raise ValueError("Name field is {} characters long, which is more than 18".format(len(name)))
+  if " " in name:
+    raise ValueError("Name field cannot contain any spaces")
   if len(comment) > 62:
-    raise ValueError("Name field is {} characters long, which is more than 24".format(len(name)))
+    raise ValueError("Comment field is {} characters long, which is more than 62".format(len(name)))
   if len(atoms) > 5:
     raise ValueError("Got {} atoms in molecule. Can only support 5".format(len(atoms)))
   atomString = "    0.00"*5 # Initialize with all the empty atom portions
-  for atom, numAtom in atoms.items():
-    if len(atom) > 2:
+  for atom_name, atom_num in atoms.items():
+    if len(atom_name) > 2:
       raise ValueError("Atom names must be 2 chars or less")
-    if numAtom > 99:
-      raise ValueError("Atoms must be less than 100")
-    if numAtom <= 0:
-      raise ValueError("Atoms must be greater than 0")
-    atomString = "{:<2}{:6.2f}".format(atom.upper(), numAtom) + atomString
+    if atom_num > 999:
+      raise ValueError("Number of {} atoms must be less than 999".format(atom_name))
+    if atom_num <= 0 and atom_name != "E": # Special value: Positively charged ions have "E: -1"
+      raise ValueError("Number of {} atoms must be greater than 0".format(atom_name))
+    atomString = "{:<2}{:6.2f}".format(atom_name.upper(), atom_num) + atomString
   atomString = atomString[:40] # Then truncate to 40 chars to remove extra empty atom portions
   if len("{:13.5f}".format(molWt)) > 13:
     raise ValueError("molecular weight has too many digits")
@@ -221,6 +224,8 @@ def print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf):
     molWt,
     hf,
   )
+  # Add in the temperature line that everyone forgets
+  string+="\r\n {:10.3f}      0.0000  0.0  0.0  0.0  0.0  0.0  0.0  0.0  0.0            0.000".format(temperature)
   print(string)
   return string
 

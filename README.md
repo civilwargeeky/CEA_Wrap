@@ -63,7 +63,7 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 * `materials`: default None, List of `Material` objects, order doesn't matter, of Oxidizer and Fuel objects e.g. materials=[material1, material2, ...]
   * materials can also be specified when you run a problem like `problem.run_cea(material1, material2, ...)`
   * materials MUST all have wt_percent specified or all have mols specified, can't have mixtures.
-* `massf`: default False, CEA usually outputs product ratios in mole ratios, if massf is True, mass ratios are specified
+* `massf`: default False, CEA usually outputs product species in mole fractions, if massf is True, mass fractions are specified
 * `filename`: default "my_output", the filename we save our .inp files to and CEA saves our .out and .plt to.
   * DO NOT INCLUDE ".inp" IN YOUR FILENAMES. 
 * `pressure_units`: default "psi", the units that your input pressure is in. Possible values are "bar", "atm", "psi", or "mmh"
@@ -156,7 +156,7 @@ For example if you had "data = problem.run_cea()", and wanted pressure, you coul
 In addition, all product dictionaries are also "Output" objects so to get H2O fraction, you could use data.prod_c.H2O or data["prod_c"]["H2O"] or data["prod_c"].H2O, etc.
 
 ### Detonation:
-* `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified in problem)
+* `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified by the 'massf' parameter in your problem definition)
 * `p` - pressure, bar
 * `t` - temperature, Kelvin
 * `h` - enthalpy, kJ/kg
@@ -177,7 +177,7 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `dLV_dLT_p` - (dLV/dLT)p
 * `phi` - weight-based equivalence ratio of oxidizer/fuel
 ### HP (Specified Enthalpy and Pressure):
-* `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified in problem)
+* `prod_c` - dictionary of chamber products, in mole or mass fractions  (as specified by the 'massf' parameter in your problem definition)
 * `p` - pressure, bar
 * `t` - temperature, Kelvin
 * `h` - enthalpy, kJ/kg
@@ -195,9 +195,9 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * **NOTE : Properties are by default at exit. Chamber parameters are prefixed "c_" and throat properties "t_"**
 * **NOTE : Properties not defined for frozen flow are marked with an asterisk (*)**
 * **NOTE : All properties defined at the throat are also defined as "f_property" when Finite Area Combustor is enabled (defined fac_ac or fac_ma)**
-* `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified in problem)
-* `*prod_t` - dictionary of throat products, in mole or mass fractions (as specified in problem)
-* `*prod_e` - dictionary of exit products, in mole or mass fractions (as specified in problem)
+* `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified by the 'massf' parameter in your problem definition)
+* `*prod_t` - dictionary of throat products, in mole or mass fractions (as specified by the 'massf' parameter in your problem definition)
+* `*prod_e` - dictionary of exit products, in mole or mass fractions (as specified by the 'massf' parameter in your problem definition)
 * `p` - pressure, bar
   * `t_p` - throat
   * `c_p` - chamber

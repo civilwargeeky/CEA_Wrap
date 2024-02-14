@@ -3,7 +3,7 @@ from setuptools.command.sdist import sdist
 from setuptools.command.install import install
 import platform, subprocess, os
 
-VERSION = '1.7.3'
+VERSION = '1.7.4'
 
 instructions = """
 (Courtesy of Morgan Reusch)

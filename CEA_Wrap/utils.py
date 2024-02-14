@@ -1,9 +1,21 @@
 import importlib.resources, os, shutil
 import logging as _logging
-import appdirs
+
 from zlib import crc32
 logging = _logging.getLogger(__name__)
 
+CEA_ENVIRONMENT_VAR = "CEA_ASSETS_DIR"
+using_pre_installed_assets = False # If the user sets the environment variable, we assume they don't want to move anything from an installation directory
+if CEA_ENVIRONMENT_VAR not in os.environ:
+  import appdirs
+  local_assets_directory = appdirs.user_data_dir(__package__, roaming=False)  # By default we use the user's app data directory
+else:
+  local_assets_directory = os.environ[CEA_ENVIRONMENT_VAR]
+  using_pre_installed_assets = True
+  print(f"Environment variable found! Using specified local assets directory: '{local_assets_directory}'")
+  if not os.path.isdir(local_assets_directory):
+    raise ImportError("Error! local assets directory specified by environment variable does not exist. Cannot start")
+  
 use_local_assets = True # If possible, use local assets rather than site-packages. Set to false if error on move
 
 class Output(dict): # This is just a dictionary that you can also use dot notation to access
@@ -141,7 +153,7 @@ def _get_asset(file: str) -> str:
     
 def _get_local_data_file(file: str) -> str:
   # Returns a file location in our data directory
-  return os.path.join(appdirs.user_data_dir(__package__, False), file)
+  return os.path.join(local_assets_directory, file)
   
 def _get_data_file(file: str) -> str:
   # Get local data file if available. Otherwise revert to package assets
@@ -158,8 +170,11 @@ def cleanup_package_install() -> bool:
   1st run: There is no AppData folder, all assets are in site-packages\CEA_Wrap\assets folder
            We create AppData\Local\CEA_Wrap and move all our assets there.
   Subsequent runs: We check that the site-packages\CEA_Wrap\assets folder exists and it doesn't so we don't change anything
-  Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement, so user thermo_spg.inp files are saved, but any missing assets are added
+  Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement,
+          so user thermo_spg.inp files are saved, but any missing assets are added
   """
+  if using_pre_installed_assets: # If using pre-installed assets, we don't want to copy anything.
+    return False
   try:
     asset_dir = _get_asset("")
     data_dir = _get_data_file("")

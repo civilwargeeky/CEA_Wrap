@@ -7,16 +7,37 @@ In a command prompt type ```pip install --upgrade CEA_Wrap``` to upgrade/install
 
 You can import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
 
-## Installation on Mac
+## Installation on Mac/Linux
 On mac, the installation script will attempt to compile the fortran executable on your system. Should it fail to do so, you will have to compile it manually.
+On Linux, you will need to compile the fortran executable yourself.
 You can see a discussion from a successful user here: [Issue #1](https://github.com/civilwargeeky/CEA_Wrap/issues/1#issuecomment-1033918162)
 
-## Upgrading from Version <1.5.0
-If you upgrade and your version is <1.5.0, any custom thermo lib you have made will be overwritten
+## Making A Portable Installation
+As of version 1.7.4 (commit d4331d7), CEA Wrap can be used in a portable manner (without accessing user's program files or app data folders for storing assets).
+To download the package to be used as a portable installation, simply clone/download this repository.
 
-Please make a copy of your thermo_spg.inp, place it in the new data directory, and recompile after upgrading
-
-As of 1.5.0, thermo_spg.inp and all other assets are kept in a data directory, rather than the package assets directory. This means that your custom thermo lib will no longer be overwritten when you upgrade
+To use this package in a portable manner, you must set the environment variable "CEA_ASSETS_DIR" to the directory where "assets" can be found **before** you import CEA_Wrap.
+Example structure:
+```
+Your Code
+│   my_code.py 
+└───CEA_Wrap
+│   │   __init__.py
+│   │   __main__.py
+│   │   CEA.py
+│   │   ...
+│   └───assets
+│       │   FCEA2.exe
+│       │   thermo.lib
+│       │   ...
+```
+Then in my_code.py you would do something like
+```python
+import os
+os.environ["CEA_ASSETS_DIR"] = os.path.join("CEA_Wrap", "assets")
+from CEA_Wrap import Oxidizer, Fuel, RocketProblem
+...
+```
 
 # Examples
 Examples on basic use can be found in the "examples" directory. Feel free to download them and try them out!

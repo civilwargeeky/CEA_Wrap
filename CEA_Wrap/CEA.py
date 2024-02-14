@@ -548,7 +548,7 @@ class TPProblem(HPProblem):
 
 class RocketProblem(Problem):
   problem_type = "rocket"
-  plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran"
+  plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip"
     
   def __init__(self, *args, sup: float=None, sub: float=None, ae_at: float=None, pip: float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, nfz: int=None, custom_nfz: float=None,
                **kwargs):
@@ -805,6 +805,8 @@ class RocketProblem(Problem):
             out.f_h = float(new_line[14])
             out.f_cond = float(new_line[15])/10
             out.f_pran = float(new_line[16])
+            out.f_ae = float(new_line[17])
+            out.f_pip = float(new_line[18])
           elif counter == throat_count: # throat properties
             # Throat/Nozzle Values
             out.t_isp = float(new_line[2])/9.81
@@ -828,6 +830,8 @@ class RocketProblem(Problem):
             out.t_h = float(new_line[14])
             out.t_cond = float(new_line[15])/10
             out.t_pran = float(new_line[16])
+            out.t_ae = float(new_line[17])
+            out.t_pip = float(new_line[18])
           elif counter == exit_count: # nozzle exit properties
             # Exit-only values
             out.mach = float(new_line[12])
@@ -854,6 +858,8 @@ class RocketProblem(Problem):
             out.h = float(new_line[14])
             out.cond = float(new_line[15])/10
             out.pran = float(new_line[16])
+            out.ae = float(new_line[17])
+            out.pip = float(new_line[18])
             
     except FileNotFoundError:
       raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)

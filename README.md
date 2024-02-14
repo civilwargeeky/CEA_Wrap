@@ -256,6 +256,11 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `*mach` - mach number at exhaust
 * `o_f` - oxidizer/fuel weight ratio
 * `phi` - weight-based equivalence ratio of oxidizer/fuel
+* `ae` - Ratio of area at exit to area at throat.
+  * `t_ae` - Ratio of area at throat to area at throat. Always 1 (exists because f_ae also exists, f_ae being ratio of combustor area to throat area)
+* `pip` - Ratio of pressure in chamber to pressure at exit
+  * `t_ae` - Ratio of pressure in chamber to pressure at throat.
+
 
 ## Using ThermoInterface
 Provided with this library is an interface to the thermo_spg.inp file provided with the library. 

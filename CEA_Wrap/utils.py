@@ -15,7 +15,7 @@ else:
   print(f"Environment variable found! Using specified local assets directory: '{local_assets_directory}'")
   if not os.path.isdir(local_assets_directory):
     raise ImportError("Error! local assets directory specified by environment variable does not exist. Cannot start")
-  
+
 use_local_assets = True # If possible, use local assets rather than site-packages. Set to false if error on move
 
 class Output(dict): # This is just a dictionary that you can also use dot notation to access

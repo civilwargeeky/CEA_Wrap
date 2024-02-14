@@ -128,7 +128,14 @@ Functions off of the existing material list, so call this after setting material
 * `.set_phi(phi)` - Sets equivalence ratio
 * `.set_r_eq(r_eq)` - Sets valence equivalence ratio
 
+## HP (Specified Enthalpy and Pressure) Problem Constructor Additional Parameters:
+For `HPProblem(*, **kwargs)`
+
+No additional parameters
+
 ## TP (Specified Temperature and Pressure) Problem Constructor Additional Parameters:
+For `TPProblem(*, **kwargs)`
+
 Very similar to an HP problem, but temperature is specified per-problem and material temperatures are ignored
 * `temperature`: default 298. Problem temperature
   * temperature can be specified later with .set_temperature
@@ -136,6 +143,10 @@ Very similar to an HP problem, but temperature is specified per-problem and mate
   * temperature_units can be specified later with .set_temperature_units
 
 ## Detonation Problem Constructor Additional Parameters:
+For `DetonationProblem(*, **kwargs)`
+
+No additional parameters
+
 **WARNING**: As far as I am aware, CEA is incapable of performing detonation calculations with condensed phase (solid) reactants. It will only handle gaseous reactants
 
 ## Rocket Problem Constructor Additional Parameters:

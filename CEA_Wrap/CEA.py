@@ -174,7 +174,6 @@ class Problem:
   # All arguments must be specified by keyword
   def __init__(self, *,
                pressure: float=1000,  # Chamber/operation pressure
-               density: float = 1, # Chamber reactants relative volume
                materials: List[Material]=None,  # List of Material objects
                massf: bool=False,  # mass fractions or mol fractions in output
                filename: str="my_output",  # The file to be used for .inp/.out/.plt files
@@ -189,10 +188,7 @@ class Problem:
     self.materials = materials
     self.pressure = pressure
     self.pressure_units = None
-    self.density = density
-    self.density_units = None
     self.set_pressure_units(pressure_units)
-    self.set_density_units(density_units)
     self.filename = None
     self.set_filename(filename)
     
@@ -901,6 +897,14 @@ class RocketProblem(Problem):
 class UVProblem(Problem):
   problem_type = "uv"
   plt_keys = "p t rho h u g s m mw cp gammas phi rho son cond pran"
+  
+  def __init__(self, *args, density: float=1, # Chamber reactants relative volume
+               density_units: str="kg", **kwargs):
+    self.density = density
+    self.density_units = density_units
+    self.set_density_units(density_units)
+    super().__init__(*args, **kwargs)
+
   def get_prefix_string(self):
     toRet = []
     toRet.append("{}".format(self.problem_type))

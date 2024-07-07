@@ -16,6 +16,8 @@ cleanup_package_install()
 CEA_LOCATION = _get_data_file(_BASE_CEA) # Get data file after cleanup because location may be different depending on availability
 OPTIONS_TEMP_UNITS = ["k", "r", "c", "f"] # options for temperature units
 OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
+OPTIONS_DENS_UNITS = ["kg","g"] # options for Density units
+
 
 def reload_thermo_lib():
   try:
@@ -208,6 +210,7 @@ class Problem:
   def set_r_eq(self, r_eq: float): self._set_fuel_ratio(r_eq=r_eq)
   
   def set_pressure(self, pressure: float): self.pressure = pressure
+
   def set_materials(self, materials: List[Material]): self.materials = materials
   def set_massf(self, massf: bool): self.massf = massf
   def set_inserts(self, inserts: Union[str, List[Union[str, Material]]]): self.inserts = self._format_input_list(inserts)
@@ -877,6 +880,100 @@ class RocketProblem(Problem):
       out.c_gamma = out.c_gammas*-out.c_dLV_dLP_t
       out.t_gamma = out.t_gammas*-out.t_dLV_dLP_t
 
+    return out
+
+#// Added for UV Implementation
+#// Mostly just a copy-paste with some changes
+#//  moving it from pressure-defined to density-defined
+class UVProblem(Problem):
+  problem_type = "uv"
+  plt_keys = "p t rho h u g s m mw cp gammas phi rho son cond pran"
+  
+  def __init__(self, *args, density: float=1, # Chamber reactants relative volume
+               density_units: str="kg", **kwargs):
+    self.density = density
+    self.density_units = density_units
+    self.set_density_units(density_units)
+    super().__init__(*args, **kwargs)
+
+  def set_density(self, density: float): self.density = density # for UV
+  # Density for UV problems
+  def set_density_units(self, density_units: str):
+    density_units = density_units.lower() # We only have a few options for density units
+    if density_units not in OPTIONS_DENS_UNITS:
+      raise ValueError("density unit must be in " + ", ".join(OPTIONS_DENS_UNITS))
+    self.density_units = density_units
+  
+  def get_prefix_string(self):
+    toRet = []
+    toRet.append("{}".format(self.problem_type))
+    toRet.append("   rho({}) = {:0.5f}".format(self.density_units, self.density))
+    toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
+    return "\n".join(toRet) + "\n"
+  
+  def process_output(self):
+    out = Output()
+    
+    # We'll also open this file to get mass/mole fractions of all constituents and other properties
+    with open(self.filename+".out") as file:
+      # Ordered (in the file) list of terms that we're searching for
+      search_terms = ["THERMODYNAMIC PROPERTIES", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
+      search_i = 0
+      in_search_area = False
+      was_in_search_area = False # State variable so we increment search_i when it changes high to low
+      passed_first_line = False # State variable so we ignore the empty line at the start of each section
+      
+      # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
+      #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
+      
+      out.prod_c = Output()
+      
+      for line in file:
+        self._error_check_thermo_out_line(line)
+        # If we are no longer in a search area, increment our search term to look for the next search area
+        if was_in_search_area and not in_search_area:
+          passed_first_line = False # reset this too
+          search_i += 1
+        was_in_search_area = in_search_area
+        if search_i >= len(search_terms): # If we have run out of search terms, close the file
+          break
+      
+        if search_terms[search_i] in line:
+          in_search_area = True
+        elif in_search_area and not passed_first_line:
+          passed_first_line = True # Skip this iteration because its a blank line
+        elif in_search_area and passed_first_line:
+          # Lines should start with the first non-blank line
+          # IMPORTANT: Each case should set in_search_area to False to end their section
+          ### Combustion Chamber Products ###
+          if search_i == 1:
+            if not line.strip():
+              in_search_area = False
+              continue
+            split = re.findall("\S+", line) # match by sections which are not whitespace
+            key = split[0].lstrip("*") # remove any asterisks
+            out.prod_c[key] = float(split[1])
+          ### Output gas products ###
+          elif search_i == 0:
+            if not line.strip(): # If this line is empty, skip it
+              continue
+            split = re.findall("\S+", line) # match by sections which are not whitespace
+            key = split[0]
+            if key == "(dLV/dLP)t":
+              out.dLV_dLP_t = float(split[1])
+            elif key == "(dLV/dLT)p":
+              out.dLV_dLT_p = float(split[1])
+            elif key == "VISC,MILLIPOISE": # Keep going until we find the viscosity line
+              out.visc = float(split[1]) * 0.0001 # convert millipoise to Pa-s
+              in_search_area = False
+              continue
+    
+    outPlt = super().process_output() # Process the plt file second so we can read errors listed in output file
+    out.update(outPlt)
+    
+    # Also include the actual gamma and not just the isentropic gamma
+    out.gamma = out.gammas*-out.dLV_dLP_t
+    
     return out
 
 

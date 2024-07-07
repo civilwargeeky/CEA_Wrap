@@ -178,7 +178,6 @@ class Problem:
                massf: bool=False,  # mass fractions or mol fractions in output
                filename: str="my_output",  # The file to be used for .inp/.out/.plt files
                pressure_units: str="psi",  # units for pressure
-               density_units: str="kg", # units for density
                inserts: Union[str, List[Union[str, Material]]]=None,  # space-separated string or list of inserts
                omits:   Union[str, List[Union[str, Material]]]=None,  # space-separated string or list of omits
                **kwargs
@@ -211,7 +210,6 @@ class Problem:
   def set_r_eq(self, r_eq: float): self._set_fuel_ratio(r_eq=r_eq)
   
   def set_pressure(self, pressure: float): self.pressure = pressure
-  def set_density(self, density: float): self.density = density # for UV
 
   def set_materials(self, materials: List[Material]): self.materials = materials
   def set_massf(self, massf: bool): self.massf = massf
@@ -228,13 +226,6 @@ class Problem:
     if pressure_units not in OPTIONS_PRES_UNITS:
       raise ValueError("pressure unit must be in " + ", ".join(OPTIONS_PRES_UNITS))
     self.pressure_units = pressure_units
-  
-  # Density for UV problems
-  def set_density_units(self, density_units: str):
-    density_units = density_units.lower() # We only have a few options for density units
-    if density_units not in OPTIONS_DENS_UNITS:
-      raise ValueError("density unit must be in " + ", ".join(OPTIONS_DENS_UNITS))
-    self.density_units = density_units
   
   def set_absolute_o_f(self) -> float:
     # Set an o_f ratio assuming that the wt_percent of each of our materials is an absolute percentage
@@ -905,6 +896,14 @@ class UVProblem(Problem):
     self.set_density_units(density_units)
     super().__init__(*args, **kwargs)
 
+  def set_density(self, density: float): self.density = density # for UV
+  # Density for UV problems
+  def set_density_units(self, density_units: str):
+    density_units = density_units.lower() # We only have a few options for density units
+    if density_units not in OPTIONS_DENS_UNITS:
+      raise ValueError("density unit must be in " + ", ".join(OPTIONS_DENS_UNITS))
+    self.density_units = density_units
+  
   def get_prefix_string(self):
     toRet = []
     toRet.append("{}".format(self.problem_type))

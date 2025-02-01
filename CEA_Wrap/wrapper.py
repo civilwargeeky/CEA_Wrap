@@ -1,6 +1,6 @@
 import re
 import logging
-from typing import List, Union
+from typing import List, Union, Optional
 
 from .utils import Output
 from .cea_interface import CEA as CEA_Class
@@ -142,42 +142,65 @@ class Problem:
   def _set_fuel_ratio(self, **kwargs):
     # This function will go through kwargs and find which ratio we should use
     found_one = False
-    for option, CEA in zip(self._ratio_options, self._ratio_CEA):
-      if option in kwargs:
+    for kwarg_name, cea_name in zip(self._ratio_options, self._ratio_CEA):
+      if kwarg_name in kwargs:
         if found_one: # If we already found one, we can't use another
           raise TypeError("Can only specify one ratio at once (%f, o/f, phi, etc.)")
-        self.ratio_name = CEA # put in the string to place into CEA
-        self.ratio_value = kwargs[option] # Then get the float
+        self.ratio_name = cea_name # put in the string to place into CEA
+        self.ratio_value = kwargs[kwarg_name] # Then get the float
         found_one = True
   
-  def _format_input_list(self, inputList):
-    # Transmutes the inputList to a space-separated list of names
-    # checks each element to ensure it is a valid material
-    if inputList is None:
+  def _format_input_list(self, input_list:str|list[str]):
+    """
+    Transmutes the input_list to a list of names
+       checks each element to ensure it is a valid material
+
+    :param input_list: Either space-separated str of material strings or a list of the same
+    :raises ValueError: If we check_against_thermo_inp and a material isn't found in ThermoInterface, raises an error
+    :return: List of validated material names
+    """
+    
+    if input_list is None:
       return None
-    if isinstance(inputList, str):
-      inputList = inputList.split()
-    inputList = list(map(str, inputList)) # make any Materials supplied into strings
+    if isinstance(input_list, str):
+      input_list = input_list.split()
+    input_list = list(map(str, input_list)) # make any Materials supplied into strings
     if self.check_against_thermo_inp:
-      for material in inputList:
+      for material in input_list:
         if material not in ThermoInterface:
           close_matches = ThermoInterface.get_close_matches(material)
           raise ValueError(f"specified element '{material}' does not exist in package thermo library\n" +
                            f"Change name or set {__package__}.{__class__}.check_against_thermo_inp to False\n"+
                            f"Material '{material}' {len(close_matches)} closest matches: \"" + '", "'.join(close_matches)+'"')
-    return inputList
+    return input_list
     
   # All arguments must be specified by keyword
-  def __init__(self, *,
-               pressure: float=1000,  # Chamber/operation pressure
-               materials: List[Material]=None,  # List of Material objects
-               massf: bool=False,  # mass fractions or mol fractions in output
-               filename: str="my_output",  # The file to be used for .inp/.out/.plt files
-               pressure_units: str="psi",  # units for pressure
-               inserts: Union[str, List[Union[str, Material]]]=None,  # space-separated string or list of inserts
-               omits:   Union[str, List[Union[str, Material]]]=None,  # space-separated string or list of omits
+  def __init__(self, *, 
+               pressure: float=1000, 
+               materials: List[Material]=None, 
+               massf: bool=False, 
+               pressure_units: str="psi", 
+               inserts: Optional[str|list[str|Material]]=None, 
+               omits:   Optional[str|list[str|Material]]=None,
+               filename:str|None=None,
                **kwargs
                ):
+    """
+    A generic CEA problem
+
+    :param pressure: Chamber pressure, defaults to 1000
+    :param materials: List of materials to run in this problem, defaults to None
+    :param massf: Output product species as mass fractions, rather than mole fractions, defaults to False
+    :param pressure_units: Units for given pressure, defaults to "psi"
+    :param inserts: List of species to force into consideration for product species. Useful for problems with a lot of condensed phase in the products. 
+                    Can be specified as a space-separated list of names, list of names, or list of materials, defaults to None
+    :param omits: List of species to force out of consideration for product species. Can be specified as a space-separated list of names,
+                  list of names, or list of materials, defaults to None, defaults to None
+    :param [fuel_ratio]: Fuel ratio may be specified o_f, phi, or others (see full documentation)
+    :param filename: Deprecated: No longer needed as the fixed CEA executable does not write to or read from files. Used to be the 
+                     prefix for the .inp files to use for this problem, .out and .plt files will share this
+    :raises TypeError: If extra parameters are set that are not one of the fuel_ratios
+    """
       
     self.massf = massf
     self.materials = materials
@@ -211,10 +234,10 @@ class Problem:
   def set_inserts(self, inserts: Union[str, List[Union[str, Material]]]): self.inserts = self._format_input_list(inserts)
   def set_omits(self, omits: Union[str, List[Union[str, Material]]]): self.omits = self._format_input_list(omits)
 
-  def set_filename(self, filename: str):
-    if ".inp" in filename or "/" in filename: # Must be a string of alphanumeric characters
-      raise ValueError("Cannot save to filename with .inp or / in it")
-    self.filename = filename
+  def set_filename(self, filename: str|None):
+    if filename is not None:
+      import warnings
+      warnings.warn("setting filename is no longer needed for CEA problems and this key is ignored", DeprecationWarning)
   
   def set_pressure_units(self, pressure_units: str):
     pressure_units = pressure_units.lower() # We only have a few options for pressure units
@@ -235,15 +258,21 @@ class Problem:
       raise TypeError("No reactant ratio specified, must set phi, or o/f, or %f, etc.")
     if len(materials) > 0: # If they specify materials, update our list
       self.materials = materials
+    
     try:
-      self.make_input_file(self.materials)
+      file_contents = self.make_input_file(self.materials)
     except OSError: # Sometimes things like dropbox lock the file so we can't access it
       raise RuntimeError("unable to open input file for writing...")
-    run_cea_backend(self.filename)
-    return self.process_output()
-  run_cea = run # alias for backward-compatibility
+    
+    out_file, plt_file = CEA.run_cea_backend(contents=file_contents)
+    return self.process_output(out_file, plt_file)
   
-  def make_input_file(self, material_list: List[Material]): # chamber conditions and materials list
+  def run_cea(self, *args, **kwargs): # alias for backward-compatibility
+    import warnings
+    warnings.warn("run_cea is deprecated. Use 'run' instead", DeprecationWarning)
+    return self.run(*args, **kwargs)
+  
+  def make_input_file(self, material_list: List[Material]) -> str: # chamber conditions and materials list
     # Make sure we have some materials
     if material_list is None or len(material_list) == 0:
       raise ValueError("must specify at least one Material in Problem")
@@ -270,31 +299,33 @@ class Problem:
     if len(fuels) == 0:  # otherwise, if we have no fuels but multiple oxidizers, more general error
       raise ValueError("Must specify at least one fuel")
   
-    with open(self.filename+".inp", "w") as file:
-      file.write("problem ")
-      file.write(self.get_prefix_string())
-      file.write("react  \n")
-      # First we write all the fuels (I don't think there's a reason to write them in this order, but we'll do it anyway
-      for fuel in fuels:
-        file.write(fuel.get_CEA_str())
-      # Then we write all the oxidizers
-      for ox in oxidizers:
-        file.write(ox.get_CEA_str())
-      if self.inserts:
-        file.write("insert "+" ".join(self.inserts)+"\n")
-      if self.omits:
-        file.write("omit "+" ".join(self.omits)+"\n")
-        
-      file.write("output {}trans\n".format("massf " if self.massf else "")) # Output is mass fraction is "massf"
-      file.write(self.get_plt_string()) # output plotting string, if any
-      file.write("end\n")
+    contents = ""
+    contents += "problem "
+    contents += self.get_prefix_string()
+    contents += "react  \n"
+    # First we write all the fuels (I don't think there's a reason to write them in this order, but we'll do it anyway
+    for fuel in fuels:
+      contents += fuel.get_CEA_str()
+    # Then we write all the oxidizers
+    for ox in oxidizers:
+      contents += ox.get_CEA_str()
+    if self.inserts:
+      contents += "insert "+" ".join(self.inserts)+"\n"
+    if self.omits:
+      contents += "omit "+" ".join(self.omits)+"\n"
+      
+    contents += "output {}trans\n".format("massf " if self.massf else "") # Output is mass fraction is "massf"
+    contents += self.get_plt_string() # output plotting string, if any
+    contents += "end\n"
+
+    return contents
   
   def get_plt_string(self) -> str:
     return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
   
-  def _error_check_thermo_out_line(self, line):
+  def _error_check_thermo_out_line(self, error_line:str):
     # Either raises an error or does nothing
-    filePath = repr(self.filename+".out")
+    filePath = CEA.OUT_ERROR_FILE if CEA.dump_out_on_error else "(no output file dumped because of `dump_out_on_error` setting)"
     prepend = "CEA Failed to Run. "
     errors = { # Errors. Keys are error keys in CEA output. Values are a string to print which are prepended with a string and appended with the file name
     "FATAL": "FATAL error in input/output file: ",
@@ -307,112 +338,116 @@ class Problem:
     }
     
     for key, value in errors.items():
-      if key in line:
+      if key in error_line:
         raise RuntimeError(prepend + value + filePath)
     
   
-  def process_output(self) -> str:
-    # Process Plot file
+  def process_output(self, out_file_content:str, plt_file_content:str) -> Output:
+    """
+    Processes the output generated by CEA, taking the contents of the .out file and .plt file to generate output
+
+    :param out_file_content: The contents of the .out file
+    :param plt_file_content: The contents of the .plt file
+    :raises RuntimeError: If the .plt file is empty
+    :return: An Output with attributes defined by self.plt_keys
+    """
     out = Output()
-    try:
-      with open(self.filename+".plt", errors='ignore') as file:
-        for line in file:
-          new_line = line.split()
-          if new_line[0] == '#':
-            continue
-          else:
-            for key, value in zip(self.plt_keys.split(" "), new_line):
-              out[key] = float(value)
-    except FileNotFoundError:
+    if not plt_file_content: # If empty string
       raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
+    for line in plt_file_content.splitlines():
+      new_line = line.split()
+      if new_line[0] == '#':
+        continue
+      else:
+        for key, value in zip(self.plt_keys.split(" "), new_line):
+          out[key] = float(value)
     return out
 
   ## THESE MUST BE IMPLEMENTED BY SUBCLASSES ##
   def get_prefix_string(self) -> str:
     raise NotImplementedError()
 
-
 class DetonationProblem(Problem):
   problem_type = "det"
   plt_keys = "p t h mw cp gammas phi vel mach rho son cond pran"
   
   def get_prefix_string(self):
-    toRet = []
-    toRet.append("{}".format(self.problem_type))
-    toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
-    toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
+    toRet = [
+      str(self.problem_type),
+      f"   p({self.pressure_units}) = {self.pressure:0.5f}",
+      f"   {self.ratio_name} = {self.ratio_value:0.5f}",
+    ]
     return "\n".join(toRet) + "\n"
 
-  def process_output(self):
+  def process_output(self, out_file_content:str, plt_file_content:str) -> Output:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
-    with open(self.filename+".out") as file:
-      # Ordered (in the file) list of terms that we're searching for
-      search_terms = ["BURNED GAS", "DETONATION PARAMETERS", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
-      search_i = 0
-      in_search_area = False
-      was_in_search_area = False # State variable so we increment search_i when it changes high to low
-      passed_first_line = False # State variable so we ignore the empty line at the start of each section
-      
-      # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
-      #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
-      
-      out.prod_c = Output()
-      
-      for line in file:
-        self._error_check_thermo_out_line(line)
-        # If we are no longer in a search area, increment our search term to look for the next search area
-        if was_in_search_area and not in_search_area:
-          passed_first_line = False # reset this too
-          search_i += 1
-        was_in_search_area = in_search_area
-        if search_i >= len(search_terms): # If we have run out of search terms, close the file
-          break
-      
-        if search_terms[search_i] in line:
-          in_search_area = True
-        elif in_search_area and not passed_first_line:
-          passed_first_line = True # Skip this iteration because its a blank line
-        elif in_search_area and passed_first_line:
-          # Lines should start with the first non-blank line
-          # IMPORTANT: Each case should set in_search_area to False to end their section
-          ### Combustion Chamber Products ###
-          if search_i == 2:
-            if not line.strip():
-              in_search_area = False
-              continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
-            key = split[0].lstrip("*") # remove any asterisks
-            out.prod_c[key] = float(split[1])
-          ### Detonation Products ###
-          elif search_i==1:
-            if not line.strip():
-              in_search_area = False
-              continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
-            key = split[0].replace("/","_").lower() # convert to usable format
-            if key == "det": # This means we've gone past the p, t, m, rho / initial lines
-              in_search_area = False
-              continue # break out
-            out[key] = float(split[1])
-          ### Output gas products ###
-          elif search_i == 0:
-            if not line.strip(): # If this line is empty, skip it
-              continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
-            key = split[0]
-            if key == "(dLV/dLP)t":
-              out.dLV_dLP_t = float(split[1])
-            elif key == "(dLV/dLT)p":
-              out.dLV_dLT_p = float(split[1])
-            elif key == "VISC,MILLIPOISE": # Keep going until we find the viscosity line
-              out.visc = float(split[1]) * 0.0001 # convert millipoise to Pa-s
-              in_search_area = False
-              continue
+    # Ordered (in the file) list of terms that we're searching for
+    search_terms = ["BURNED GAS", "DETONATION PARAMETERS", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
+    search_i = 0
+    in_search_area = False
+    was_in_search_area = False # State variable so we increment search_i when it changes high to low
+    passed_first_line = False # State variable so we ignore the empty line at the start of each section
     
-    outPlt = super().process_output() # Process the plt file second so we can read errors listed in output file
-    out.update(outPlt)
+    # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
+    #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
+    
+    out.prod_c = Output()
+    
+    for line in out_file_content.splitlines():
+      self._error_check_thermo_out_line(line)
+      # If we are no longer in a search area, increment our search term to look for the next search area
+      if was_in_search_area and not in_search_area:
+        passed_first_line = False # reset this too
+        search_i += 1
+      was_in_search_area = in_search_area
+      if search_i >= len(search_terms): # If we have run out of search terms, close the file
+        break
+    
+      if search_terms[search_i] in line:
+        in_search_area = True
+      elif in_search_area and not passed_first_line:
+        passed_first_line = True # Skip this iteration because its a blank line
+      elif in_search_area and passed_first_line:
+        # Lines should start with the first non-blank line
+        # IMPORTANT: Each case should set in_search_area to False to end their section
+        ### Combustion Chamber Products ###
+        if search_i == 2:
+          if not line.strip():
+            in_search_area = False
+            continue
+          split = re.findall("\S+", line) # match by sections which are not whitespace
+          key = split[0].lstrip("*") # remove any asterisks
+          out.prod_c[key] = float(split[1])
+        ### Detonation Products ###
+        elif search_i==1:
+          if not line.strip():
+            in_search_area = False
+            continue
+          split = re.findall("\S+", line) # match by sections which are not whitespace
+          key = split[0].replace("/","_").lower() # convert to usable format
+          if key == "det": # This means we've gone past the p, t, m, rho / initial lines
+            in_search_area = False
+            continue # break out
+          out[key] = float(split[1])
+        ### Output gas products ###
+        elif search_i == 0:
+          if not line.strip(): # If this line is empty, skip it
+            continue
+          split = re.findall("\S+", line) # match by sections which are not whitespace
+          key = split[0]
+          if key == "(dLV/dLP)t":
+            out.dLV_dLP_t = float(split[1])
+          elif key == "(dLV/dLT)p":
+            out.dLV_dLT_p = float(split[1])
+          elif key == "VISC,MILLIPOISE": # Keep going until we find the viscosity line
+            out.visc = float(split[1]) * 0.0001 # convert millipoise to Pa-s
+            in_search_area = False
+            continue
+    
+    out_plt = super().process_output(out_file_content, plt_file_content) # Process the plt file second so we can read errors listed in output file
+    out.update(out_plt)
     
     # Also include the actual gamma and not just the isentropic gamma
     out.gamma = out.gammas*-out.dLV_dLP_t
@@ -429,65 +464,64 @@ class HPProblem(Problem):
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
     return "\n".join(toRet) + "\n"
   
-  def process_output(self):
+  def process_output(self, out_file_content:str, plt_file_content:str) -> Output:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
-    with open(self.filename+".out") as file:
-      # Ordered (in the file) list of terms that we're searching for
-      search_terms = ["THERMODYNAMIC PROPERTIES", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
-      search_i = 0
-      in_search_area = False
-      was_in_search_area = False # State variable so we increment search_i when it changes high to low
-      passed_first_line = False # State variable so we ignore the empty line at the start of each section
-      
-      # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
-      #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
-      
-      out.prod_c = Output()
-      
-      for line in file:
-        self._error_check_thermo_out_line(line)
-        # If we are no longer in a search area, increment our search term to look for the next search area
-        if was_in_search_area and not in_search_area:
-          passed_first_line = False # reset this too
-          search_i += 1
-        was_in_search_area = in_search_area
-        if search_i >= len(search_terms): # If we have run out of search terms, close the file
-          break
-      
-        if search_terms[search_i] in line:
-          in_search_area = True
-        elif in_search_area and not passed_first_line:
-          passed_first_line = True # Skip this iteration because its a blank line
-        elif in_search_area and passed_first_line:
-          # Lines should start with the first non-blank line
-          # IMPORTANT: Each case should set in_search_area to False to end their section
-          ### Combustion Chamber Products ###
-          if search_i == 1:
-            if not line.strip():
-              in_search_area = False
-              continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
-            key = split[0].lstrip("*") # remove any asterisks
-            out.prod_c[key] = float(split[1])
-          ### Output gas products ###
-          elif search_i == 0:
-            if not line.strip(): # If this line is empty, skip it
-              continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
-            key = split[0]
-            if key == "(dLV/dLP)t":
-              out.dLV_dLP_t = float(split[1])
-            elif key == "(dLV/dLT)p":
-              out.dLV_dLT_p = float(split[1])
-            elif key == "VISC,MILLIPOISE": # Keep going until we find the viscosity line
-              out.visc = float(split[1]) * 0.0001 # convert millipoise to Pa-s
-              in_search_area = False
-              continue
+    # Ordered (in the file) list of terms that we're searching for
+    search_terms = ["THERMODYNAMIC PROPERTIES", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
+    search_i = 0
+    in_search_area = False
+    was_in_search_area = False # State variable so we increment search_i when it changes high to low
+    passed_first_line = False # State variable so we ignore the empty line at the start of each section
     
-    outPlt = super().process_output() # Process the plt file second so we can read errors listed in output file
-    out.update(outPlt)
+    # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
+    #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
+    
+    out.prod_c = Output()
+    
+    for line in out_file_content.splitlines():
+      self._error_check_thermo_out_line(line)
+      # If we are no longer in a search area, increment our search term to look for the next search area
+      if was_in_search_area and not in_search_area:
+        passed_first_line = False # reset this too
+        search_i += 1
+      was_in_search_area = in_search_area
+      if search_i >= len(search_terms): # If we have run out of search terms, close the file
+        break
+    
+      if search_terms[search_i] in line:
+        in_search_area = True
+      elif in_search_area and not passed_first_line:
+        passed_first_line = True # Skip this iteration because its a blank line
+      elif in_search_area and passed_first_line:
+        # Lines should start with the first non-blank line
+        # IMPORTANT: Each case should set in_search_area to False to end their section
+        ### Combustion Chamber Products ###
+        if search_i == 1:
+          if not line.strip():
+            in_search_area = False
+            continue
+          split = re.findall("\S+", line) # match by sections which are not whitespace
+          key = split[0].lstrip("*") # remove any asterisks
+          out.prod_c[key] = float(split[1])
+        ### Output gas products ###
+        elif search_i == 0:
+          if not line.strip(): # If this line is empty, skip it
+            continue
+          split = re.findall("\S+", line) # match by sections which are not whitespace
+          key = split[0]
+          if key == "(dLV/dLP)t":
+            out.dLV_dLP_t = float(split[1])
+          elif key == "(dLV/dLT)p":
+            out.dLV_dLT_p = float(split[1])
+          elif key == "VISC,MILLIPOISE": # Keep going until we find the viscosity line
+            out.visc = float(split[1]) * 0.0001 # convert millipoise to Pa-s
+            in_search_area = False
+            continue
+    
+    out_plt = super().process_output(out_file_content, plt_file_content) # Process the plt file second so we can read errors listed in output file
+    out.update(out_plt)
     
     # Also include the actual gamma and not just the isentropic gamma
     out.gamma = out.gammas*-out.dLV_dLP_t
@@ -495,13 +529,13 @@ class HPProblem(Problem):
     return out
 
 class TPMaterial(Material):
-  def __init__(self, parent):
+  def __init__(self, parent: Material):
     try:
       p = parent
       self.parent = p
       self.output_type = self.parent.output_type
       self.is_fuel = self.parent.is_fuel
-      super().__init__(p.name, p.temp, p.wt_percent, p.mols, p.chemical_composition, p.hf)
+      super().__init__(p.name, p.temp, p.wt_percent, p.mols, p.chemical_composition, p.hf, p.hf_unit)
     except AttributeError:
       raise TypeError("TPMaterial must be derived from Material, but a '{}' object was supplied".format(type(parent)))
 
@@ -548,8 +582,11 @@ class RocketProblem(Problem):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip"
     
-  def __init__(self, *args, sup: float=None, sub: float=None, ae_at: float=None, pip: float=None, analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, nfz: int=None, custom_nfz: float=None,
-               **kwargs):
+  def __init__(self, *args, sup: float=None, sub: float=None, ae_at: float=None, pip: float=None, 
+               analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, nfz: int=None,
+               custom_nfz: float=None,
+               **kwargs
+               ):
     super().__init__(*args, **kwargs)
     
     if ae_at:
@@ -630,40 +667,39 @@ class RocketProblem(Problem):
       toRet.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(toRet) + "\n"
   
-  def process_output(self):
+  def process_output(self, out_file_content: str, plt_file_content: str) -> Output:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
-    with open(self.filename+".out") as file:
-      # Ordered (in the file) list of terms that we're searching for
-      search_terms = ["CHAMBER", "PERFORMANCE PARAMETERS", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
-      search_i = 0
-      in_search_area = False
-      was_in_search_area = False # State variable so we increment search_i when it changes high to low
-      passed_first_line = False # State variable so we ignore the empty line at the start of each section
-      
-      # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
-      #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
-      
-      has_fac = bool(self.fac_type) # If has finite area combustor
-      ch_th = 3 if has_fac else 2
-      end_col = ch_th + len(self.nozzle_ratio_value)
-      
-      out.prod_c = Output()
-      out.prod_t = Output()
-      out.prod_e = Output()
-      if has_fac:
-        out.prod_f = Output()
-      
-      # Float map, mapping columns because the mapping isn't always 1,2,3
-      def flMap(splitline, key):
-        if has_fac: # If finite area combustor, we have more columns
-          mapping = {"c": 1, "f": 2, "t": 3, "e": end_col}
-        else: # Otherwise, normal
-          mapping = {"c": 1, "t": 2, "e": end_col}
-        return float(splitline[mapping[key]])
-      
-      for line in file:
+    # Ordered (in the file) list of terms that we're searching for
+    search_terms = ["CHAMBER", "PERFORMANCE PARAMETERS", ("MASS FRACTIONS" if self.massf else "MOLE FRACTIONS")]
+    search_i = 0
+    in_search_area = False
+    was_in_search_area = False # State variable so we increment search_i when it changes high to low
+    passed_first_line = False # State variable so we ignore the empty line at the start of each section
+    
+    # The format of each section is "HEADING\n [empty line]\n [lines of data...]\n [empty line]
+    #   So when we get a heading, we ignore the first line after, and keep going until the code for that section says to stop
+    
+    has_fac = bool(self.fac_type) # If has finite area combustor
+    ch_th = 3 if has_fac else 2
+    end_col = ch_th + len(self.nozzle_ratio_value)
+    
+    out.prod_c = Output()
+    out.prod_t = Output()
+    out.prod_e = Output()
+    if has_fac:
+      out.prod_f = Output()
+    
+    # Float map, mapping columns because the mapping isn't always 1,2,3
+    def flMap(splitline, key):
+      if has_fac: # If finite area combustor, we have more columns
+        mapping = {"c": 1, "f": 2, "t": 3, "e": end_col}
+      else: # Otherwise, normal
+        mapping = {"c": 1, "t": 2, "e": end_col}
+      return float(splitline[mapping[key]])
+    
+    for line in out_file_content.splitlines():
         self._error_check_thermo_out_line(line)
         # If we are no longer in a search area, increment our search term to look for the next search area
         if was_in_search_area and not in_search_area:
@@ -742,19 +778,20 @@ class RocketProblem(Problem):
                 out.t_isp = float(split[2])/9.81
                 out.isp = float(split[3])/9.81
     
-    try:
-      chamber_count = 1
-      if has_fac:
-        fac_count = 2
-        throat_count = 3
-        exit_count = 4
-      else:
-        fac_count = -1
-        throat_count = 2
-        exit_count = end_col
-      
-      with open(self.filename+".plt", errors='ignore') as file:
-        for counter, line in enumerate(file):
+    if not plt_file_content:
+      raise RuntimeError("CEA Failed to Run. Plot file wasn't generated")
+    
+    chamber_count = 1
+    if has_fac:
+      fac_count = 2
+      throat_count = 3
+      exit_count = 4
+    else:
+      fac_count = -1
+      throat_count = 2
+      exit_count = end_col
+    
+    for counter, line in enumerate(plt_file_content.splitlines()):
           new_line = line.split()
           if counter == 0:
             continue
@@ -859,10 +896,6 @@ class RocketProblem(Problem):
             out.ae = float(new_line[17])
             out.pip = float(new_line[18])
             
-    except FileNotFoundError:
-      raise RuntimeError("CEA Failed to Run. Plot file wasn't generated for " + self.filename)
-            
-
     if "frozen" in self.analysis_type:
       # We don't get mole fractions in the other positions for frozen
       del out["prod_t"]
@@ -876,19 +909,3 @@ class RocketProblem(Problem):
       out.t_gamma = out.t_gammas*-out.t_dLV_dLP_t
 
     return out
-
-
-if __name__ == "__main__":
-  # Example: Set up a simple Water + Peroxide reaction
-  water = Fuel("H2O(L)")
-  hPeroxide = Oxidizer("H2O2(L)")
-  
-  chamber_pressure = 1000
-  exit_pressure = 14.7
-  
-  problem = RocketProblem(pressure=1000, o_f=5, omits="Al(cr)")
-  
-  for ae_at in [chamber_pressure/exit_pressure, 80]:
-    problem.set_ae_at(ae_at)
-    data = problem.run_cea(water, hPeroxide)
-    print(data)

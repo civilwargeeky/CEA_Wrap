@@ -1,51 +1,62 @@
-import subprocess, re
-import logging as _logging
-import platform
-import warnings
+import re
+import logging
 from typing import List, Union
-from .utils import get_asset, move_file_if_changed, Output
-from .thermo_lib import ThermoInterface
-logging = _logging.getLogger(__name__)
 
-_BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
+from .utils import Output
+from .cea_interface import CEA as CEA_Class
+from .thermo_lib import ThermoInterface as ThermoInterface_Class
 
-CEA_LOCATION = get_asset(_BASE_CEA) # Get data file after cleanup because location may be different depending on availability
+log = logging.getLogger(__name__)
+
 OPTIONS_TEMP_UNITS = ["k", "r", "c", "f"] # options for temperature units
 OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
+OPTIONS_ENTHALPY_UNITS = ["c", "kc", "j", "kj"] # options for enthalpy units. 'c' and 'kc' are "calorie" and "kilo-calorie (Calorie)"
 
-def reload_thermo_lib():
-  try:
-    for file in ["thermo.lib", "trans.lib"]:
-      pack_file = get_asset(file)
-      move_file_if_changed(file, pack_file)
-  except PermissionError as e:
-    logging.error("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
-    logging.error("---- Is your current directory system32 or another protected directory? ----")
-    raise e from None
-  # Load our interface to all the ThermoMaterials
-  ThermoInterface.load()
-reload_thermo_lib() # Call this immediately
+# Instantiate default objects used for all problems (using files defined within .utils.py)
+CEA = CEA_Class() 
+ThermoInterface = ThermoInterface_Class()
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
   is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overriden
   # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
   #   also, will add .ref member to all objects for the thermo input reference
-  check_against_thermo_inp = True 
+  check_against_thermo_inp = True
   
-  def __init__(self, name, temp:float=298.15, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None, hf_type="mol"):
+  def __init__(self, name, temp:float=298.15, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None, hf_unit="kj"):
+    """
+    A material to put in the problem's .inp file. Can be specified inline or come from the thermo.lib
+    If neither wt_percent nor mols is specified, wt_percent is 100
+    If one of chemical_composition or hf is given, the other must be as well
+
+    :param name: Name to input into CEA
+    :param temp: temperature in K, defaults to 298.15K
+    :param wt_percent: Relative weight percent of this Material, defaults to None.
+    :param mols: Mole ratio for this material, defaults to None
+    :param chemical_composition: chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values, defaults to None
+    :param hf: Enthalpy of formation, in kJ/`hf_type`. Must be defined if chemical_composition is, defaults to None
+    :param hf_type: _description_, defaults to "mol"
+    :raises ValueError: _description_
+    :raises TypeError: _description_
+    """
     if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
       wt_percent = 100
+    elif wt_percent is not None and mols is not None:
+      raise TypeError("Material cannot have both wt_percent and mols specified")
     
-    self.name = name # Name to input into CEA
-    self.temp = temp # temperature in K, defaults to 298K
-    self.wt_percent = wt_percent # Should be set when actually running through
-    self.mols = mols # Mole ratio for this material
-    self.chemical_composition = chemical_composition # chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values
-    self.hf = hf # Enthalpy of formation, if needs to be defined.
+    self.name = name 
+    self.temp = temp
+    self.wt_percent = wt_percent
+    self.mols = mols
+    self.chemical_composition = chemical_composition
+    self.hf = hf
     if (chemical_composition == None) ^ (hf == None): # XOR is true if exactly one is true
       raise ValueError("Elements entered with exploded chemical formula or hf must have both")
+    self.hf_unit = hf_unit
+    if hf_unit not in OPTIONS_ENTHALPY_UNITS:
+      raise ValueError(f"hf_unit was '{hf_unit}' but must be one of {OPTIONS_ENTHALPY_UNITS}")
     
+    self.ref = None
     if self.check_against_thermo_inp and not chemical_composition: # If they don't override thermo.lib data and we check for missing elements
       if name not in ThermoInterface:
         close_matches = ThermoInterface.get_close_matches(name)
@@ -57,13 +68,11 @@ class Material:
     
       if not ThermoInterface[name].defined_at(temp):
         ranges = ThermoInterface[name].temp_ranges
+        # min and max sort by 1st element of tuples, assume tuple with max 1st element is max total.
         string = f"specified material '{name}' does not exist at temperature {temp:0.2f} " +\
-                  " (min, max) = ({:.2f}, {:0.2f})".format(min(ranges)[0], max(ranges)[1]) # min and max sort by 1st element of tuples, assume tuple with max 1st element is max total.
+                  " (min, max) = ({:.2f}, {:0.2f})".format(min(ranges)[0], max(ranges)[1]) 
         raise ValueError(string)
     
-    if wt_percent and mols:
-      raise TypeError("Material cannot have both wt_percent and mols specified")
-  
   def set_wt_percent(self, wt_percent:float):
     self.mols = None # Can only have one
     self.wt_percent = wt_percent
@@ -84,7 +93,7 @@ class Material:
     return self.wt_percent is not None
 
   def get_CEA_name_wt(self, wt_or_mol: str, amount: float) -> str:
-    """ Gives the actual line put into .inp files, minus potential hf strings or chemical composition """
+    """ Gives the actual line put into .inp files, minus potential hf strings or chemical composition. Not valid if self.composition is given """
     return "   {}={} {}={:0.5f}  t,k={:0.5f}".format(self.output_type, self.name, wt_or_mol, amount, self.temp)
 
   def get_CEA_str(self) -> str:
@@ -97,7 +106,7 @@ class Material:
     else:
       string = self.get_CEA_name_wt(name, ratio)
       if self.hf:
-        string += " h,kj/mol={:0.5f}".format(self.hf)
+        string += " h,{}/mol={:0.5f}".format(self.hf_unit, self.hf)
       if self.chemical_composition:
         string += " " + self.chemical_composition
       return string + " \n"
@@ -117,7 +126,7 @@ class Oxidizer(Material):
 
 O = Oxidizer # Alias
 
-## Plan: Can also have composite Fuel/Oxidizer made up of percentages of other components
+## TODO: Can also have composite Fuel/Oxidizer made up of percentages of other components
   
 # My idea is that we could have different types of problems with similar methods for like get_prefix_string and things
 class Problem:

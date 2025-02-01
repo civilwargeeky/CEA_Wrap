@@ -5,37 +5,40 @@ import platform
 from zlib import crc32
 log = logging.getLogger(__name__)
 
-local_assets_directory = os.getenv("CEA_ASSETS_DIR")
+local_assets_directory = os.getenv("CEA_ASSETS_DIR") # or None
+# If possible, use local assets rather than site-packages. But let the user force us to use just site-packages
+# Gets set to false if there is some error with using local site packages
+use_site_packages = bool(os.getenv("CEA_USE_SITE_PACKAGES"))
 
-using_pre_installed_assets = False # If the user sets the environment variable, we assume they don't want to move anything from an installation directory
-if local_assets_directory is None:
-  import appdirs # Only import this if they don't specify a directory specifically
-  local_assets_directory = appdirs.user_data_dir(__package__, roaming=False)  # By default we use the user's app data directory
+try_move_to_local = True # Whether or not we should try moving things from site packages
+if use_site_packages: # If they specify to use site packages, they probably don't want to create a local directory
+  try_move_to_local = False
 else:
-  using_pre_installed_assets = True
-  log.info(f"Local assets directory specified by environment variable! Using specified local assets directory: '{local_assets_directory}'")
-  if not os.path.isdir(local_assets_directory):
-    raise ImportError("Error! local assets directory specified by environment variable does not exist. Cannot start")
+  if local_assets_directory is None:
+    import appdirs # Only import this if they don't specify a directory specifically
+    local_assets_directory = appdirs.user_data_dir(__package__, roaming=False)  # By default we use the user's app data directory
+  else:
+    try_move_to_local = False # If the user sets the environment variable, we assume they don't want to move anything from an installation directory
+    log.info(f"Local assets directory specified by environment variable! Using specified local assets directory: '{local_assets_directory}'")
+    if not os.path.isdir(local_assets_directory):
+      raise ImportError("Error! local assets directory specified by environment variable does not exist. Cannot start")
 
-use_local_assets = True # If possible, use local assets rather than site-packages. Set to false if error on move
-
-def _get_asset(file: str) -> str:
+def get_site_package_path(file: str) -> str:
   # The reason the manager is used is because our package may be zipped and the manager extracts it
   #   However, this package is not zip-safe so we just return the location
   with importlib.resources.path(__package__+".assets", file) as manager:
     return str(manager)
     
-def _get_local_data_file(file: str) -> str:
+def get_local_data_file(file: str) -> str:
   # Returns a file location in our data directory
   return os.path.join(local_assets_directory, file)
-  
-def _get_data_file(file: str) -> str:
-  # Get local data file if available. Otherwise revert to package assets
-  if use_local_assets:
-    return _get_local_data_file(file)
-  else:
-    return _get_asset(file)
 
+def get_asset(file: str) -> str:
+  # Revert to package assets is required. Otherwise, get local data file if available.
+  if use_site_packages:
+    return get_site_package_path(file)
+  else:
+    return get_local_data_file(file)
 
 """
 # The first time we install from source, we need to move our files from the ".assets" directory to our data directory
@@ -47,11 +50,11 @@ Subsequent runs: We check that the site-packages/CEA_Wrap/assets folder exists a
 Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement,
         so user thermo_spg.inp files are saved, but any missing assets are added
 """
-if not using_pre_installed_assets: # If using pre-installed assets, we don't want to copy anything.
+if try_move_to_local: # If using pre-installed assets, we don't want to copy anything.
   try:
     log.info("Performing asset cleanup")
-    asset_dir = _get_asset("")
-    data_dir = _get_data_file("")
+    asset_dir = get_site_package_path("")
+    data_dir = get_asset("")
     if os.path.isdir(asset_dir):
       log.debug("Doing assets existence moving: package assets directory exists, moving files to data directory")
       log.debug("Package Dir: " + asset_dir)
@@ -69,6 +72,8 @@ if not using_pre_installed_assets: # If using pre-installed assets, we don't wan
         if not os.path.exists(dst_path): # If we don't already have a copy of this file
           log.debug("Copying file")
           shutil.copy2(src_path, dst_path) # Copy it
+        else:
+          log.debug("File already existed in destination")
   except ModuleNotFoundError: # importlib raises this if a directory doesn't exist
     log.debug("Assets directory doesn't exist")
   except PermissionError: # Unsure why this happens, happened to one person using Anaconda
@@ -93,8 +98,8 @@ def get_lib_locations() -> tuple[str, str]:
   :return: 2-tuple of locations of thermo.lib and trans.lib
   """
   return (
-    os.getenv("CEA_THERMO_LIB", _get_data_file("thermo.lib")),
-    os.getenv("CEA_TRANS_LIB",  _get_data_file("trans.lib"))
+    os.getenv("CEA_THERMO_LIB", get_asset("thermo.lib")),
+    os.getenv("CEA_TRANS_LIB",  get_asset("trans.lib"))
   )
 
 def get_thermo_inp_location() -> str:
@@ -104,7 +109,7 @@ def get_thermo_inp_location() -> str:
 
   :return: 
   """
-  return os.getenv("CEA_THERMO_INP", _get_data_file("thermo_spg.inp"))
+  return os.getenv("CEA_THERMO_INP", get_asset("thermo_spg.inp"))
 
 class Output(dict):
   """ This is just a dictionary that you can also use dot notation to access """
@@ -117,37 +122,41 @@ class Output(dict):
     else:
       self[name] = value
 
-def move_file_if_changed(file: str, pack_file: str):
+def move_file_if_changed(source: str, destination: str):
+  """
+  Copies the file at `source` to `destination` if a) `destination` does not exist or b) the CRC32 of `destination` does not match that of `source`
+
+  :param source: The file path to the source file
+  :param destination: The file path to the destination file
+  """
   # file is the local destination, pack_file is the master location
-  if os.path.isfile(file):
+  if os.path.isfile(destination):
     # If the file is here, we check the hash of it against the package one
-    with open(pack_file, "rb") as f1, open(file, "rb") as f2:
+    with open(source, "rb") as f1, open(destination, "rb") as f2:
       pack_hash = crc32(f1.read())
       local_hash = crc32(f2.read())
     if pack_hash != local_hash: 
-      log.info(file+" hash does not match package file hash! Updating local file with one from package")
-      shutil.copyfile(pack_file, file)
+      log.info(destination+" hash does not match package file hash! Updating local file with one from package")
+      shutil.copyfile(source, destination)
   else:
     # If not here, copy it from package
-    log.info(file+" not found in current directory. Copying from package to current directory...")
-    shutil.copyfile(pack_file, file)
+    log.info(destination+" not found in current directory. Copying from package to current directory...")
+    shutil.copyfile(source, destination)
 
 def open_thermo_lib():
   """ Opens the thermo library input file using the user's default .inp file viewer (should prompt if none) """
   print("Opening thermo library .inp file using default .inp file viewer")
-  os.system(_get_data_file("thermo_spg.inp"))
+  os.system(get_asset("thermo_spg.inp"))
 
 def open_pdfs():
   """ Opens the NASA pdfs using the user's default pdf viewer """
   print("Opening user manuals using default pdf viewer")
-  os.system('"'+_get_data_file("CEA_Mathematical_Analysis.pdf")+'"')
-  os.system('"'+_get_data_file("CEA_Users_Manual_and_Program_Description.pdf")+'"')
+  os.system('"'+get_asset("CEA_Mathematical_Analysis.pdf")+'"')
+  os.system('"'+get_asset("CEA_Users_Manual_and_Program_Description.pdf")+'"')
   
 def print_assets_directory():
-  """
-    Just prints the directory where resources are
-  """
-  var = os.path.dirname(_get_data_file("FCEA2.exe"))
+  """ Just prints the directory where resources are """
+  var = os.path.dirname(get_CEA_location())
   print(var)
   return var
 

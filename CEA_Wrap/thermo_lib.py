@@ -4,7 +4,7 @@ from time import time
 import difflib # for nearby element matches
 from typing import List
 from .mydifflib import get_close_matches_indexes as close_match_index # for nearby element matches
-from .utils import _get_data_file, Output
+from .utils import get_asset, Output
 logging = _logging.getLogger(__name__)
 
 class _Meta(type):
@@ -89,7 +89,7 @@ def load_thermo_file(filename:str = None):
     Returns a dictionary of name: ThermoMaterial representing the material
   """
   if filename is None:
-    filename = _get_data_file("thermo_spg.inp")
+    filename = get_asset("thermo_spg.inp")
   
   split_by_num = lambda string, num: [string[i:i+num] for i in range(0, len(string), num)]
   

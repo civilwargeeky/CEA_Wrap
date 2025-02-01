@@ -3,24 +3,20 @@ import logging as _logging
 import platform
 import warnings
 from typing import List, Union
-from .utils import _get_data_file, cleanup_package_install, move_file_if_changed, Output
+from .utils import get_asset, move_file_if_changed, Output
 from .thermo_lib import ThermoInterface
 logging = _logging.getLogger(__name__)
 
 _BASE_CEA = "FCEA2.exe" if platform.system() == "Windows" else "FCEA2"
 
-# The first time we install from source, we need to move our files from the ".assets" directory to our data directory
-# This function checks if the assets directory still exists, and if so, will try to copy files to it.
-cleanup_package_install()
-
-CEA_LOCATION = _get_data_file(_BASE_CEA) # Get data file after cleanup because location may be different depending on availability
+CEA_LOCATION = get_asset(_BASE_CEA) # Get data file after cleanup because location may be different depending on availability
 OPTIONS_TEMP_UNITS = ["k", "r", "c", "f"] # options for temperature units
 OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
 
 def reload_thermo_lib():
   try:
     for file in ["thermo.lib", "trans.lib"]:
-      pack_file = _get_data_file(file)
+      pack_file = get_asset(file)
       move_file_if_changed(file, pack_file)
   except PermissionError as e:
     logging.error("---- Error! Attempted to copy thermo.lib and trans.lib into current directory but failed ----")
@@ -122,13 +118,6 @@ class Oxidizer(Material):
 O = Oxidizer # Alias
 
 ## Plan: Can also have composite Fuel/Oxidizer made up of percentages of other components
-
-def run_cea_backend(filename:str):
-  ret = subprocess.run(CEA_LOCATION, input=filename+"\n", text=True, stdout=subprocess.DEVNULL)
-  if ret.returncode != 0:
-    logging.error(ret)
-    raise RuntimeError("Running CEA failed with errors")
-  return ret
   
 # My idea is that we could have different types of problems with similar methods for like get_prefix_string and things
 class Problem:

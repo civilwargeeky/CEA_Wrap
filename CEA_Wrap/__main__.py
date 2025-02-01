@@ -1,4 +1,4 @@
-from .CEA import Fuel, Oxidizer, HPProblem, RocketProblem
+from .wrapper import Fuel, Oxidizer, HPProblem, RocketProblem
 import pprint
 
 code1 = """

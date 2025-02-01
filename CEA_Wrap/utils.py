@@ -1,34 +1,159 @@
 import importlib.resources, os, shutil
-import logging as _logging
+import logging
+import platform
 
 from zlib import crc32
-logging = _logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
-CEA_ENVIRONMENT_VAR = "CEA_ASSETS_DIR"
+local_assets_directory = os.getenv("CEA_ASSETS_DIR")
+
 using_pre_installed_assets = False # If the user sets the environment variable, we assume they don't want to move anything from an installation directory
-if CEA_ENVIRONMENT_VAR not in os.environ:
-  import appdirs
+if local_assets_directory is None:
+  import appdirs # Only import this if they don't specify a directory specifically
   local_assets_directory = appdirs.user_data_dir(__package__, roaming=False)  # By default we use the user's app data directory
 else:
-  local_assets_directory = os.environ[CEA_ENVIRONMENT_VAR]
   using_pre_installed_assets = True
-  print(f"Environment variable found! Using specified local assets directory: '{local_assets_directory}'")
+  log.info(f"Local assets directory specified by environment variable! Using specified local assets directory: '{local_assets_directory}'")
   if not os.path.isdir(local_assets_directory):
     raise ImportError("Error! local assets directory specified by environment variable does not exist. Cannot start")
 
 use_local_assets = True # If possible, use local assets rather than site-packages. Set to false if error on move
 
-class Output(dict): # This is just a dictionary that you can also use dot notation to access
-  def __init__(self): # Explicitly must receive no arguments, because I don't want to deal with constructor properties
-    super().__init__()
+def _get_asset(file: str) -> str:
+  # The reason the manager is used is because our package may be zipped and the manager extracts it
+  #   However, this package is not zip-safe so we just return the location
+  with importlib.resources.path(__package__+".assets", file) as manager:
+    return str(manager)
     
+def _get_local_data_file(file: str) -> str:
+  # Returns a file location in our data directory
+  return os.path.join(local_assets_directory, file)
+  
+def _get_data_file(file: str) -> str:
+  # Get local data file if available. Otherwise revert to package assets
+  if use_local_assets:
+    return _get_local_data_file(file)
+  else:
+    return _get_asset(file)
+
+
+"""
+# The first time we install from source, we need to move our files from the ".assets" directory to our data directory
+# This checks if the assets directory still exists, and if so, will try to copy files to it.
+Expected process:
+1st run: There is no AppData folder, all assets are in site-packages/CEA_Wrap/assets folder
+          We create AppData/Local/CEA_Wrap and move all our assets there.
+Subsequent runs: We check that the site-packages/CEA_Wrap/assets folder exists and it doesn't so we don't change anything
+Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement,
+        so user thermo_spg.inp files are saved, but any missing assets are added
+"""
+if not using_pre_installed_assets: # If using pre-installed assets, we don't want to copy anything.
+  try:
+    log.info("Performing asset cleanup")
+    asset_dir = _get_asset("")
+    data_dir = _get_data_file("")
+    if os.path.isdir(asset_dir):
+      log.debug("Doing assets existence moving: package assets directory exists, moving files to data directory")
+      log.debug("Package Dir: " + asset_dir)
+      log.debug("Data Dir:    " + data_dir)
+      if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
+        log.debug("Data directory didn't exist")
+        os.makedirs(data_dir)
+      for file in os.listdir(asset_dir):
+        if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
+          continue
+        src_path = os.path.join(asset_dir, file)
+        dst_path = os.path.join(data_dir, file)
+        log.debug("Checking file: " + file)
+        log.debug(src_path + " ==> " + dst_path)
+        if not os.path.exists(dst_path): # If we don't already have a copy of this file
+          log.debug("Copying file")
+          shutil.copy2(src_path, dst_path) # Copy it
+  except ModuleNotFoundError: # importlib raises this if a directory doesn't exist
+    log.debug("Assets directory doesn't exist")
+  except PermissionError: # Unsure why this happens, happened to one person using Anaconda
+    log.warning("Permission Error. Cannot create local assets directory. Custom thermo.inp library will be overwritten when CEA_Wrap is updated")
+    use_local_assets = False
+
+def get_CEA_location(legacy=False) -> str:
+  """
+  Returns the location of the CEA executable, which may be overidden by the "CEA_EXE_LOCATION" environment variable
+
+  :param legacy: If legacy, finds "FCEA2", otherwise finds "Dan_CEA2", defaults to False
+  :return: The location of CEA
+  """
+  base_name = "FCEA2" if legacy else "Dan_CEA2"
+  return os.getenv("CEA_EXE_LOCATION", f"{base_name}.exe" if platform.system() == "Windows" else base_name)
+
+def get_lib_locations() -> tuple[str, str]:
+  """
+  Returns the locations of the thermo.lib and trans.lib, which may be overidden by the environment variables
+    "CEA_THERMO_LIB" and "CEA_TRANS_LIB", respectively
+
+  :return: 2-tuple of locations of thermo.lib and trans.lib
+  """
+  return (
+    os.getenv("CEA_THERMO_LIB", _get_data_file("thermo.lib")),
+    os.getenv("CEA_TRANS_LIB",  _get_data_file("trans.lib"))
+  )
+
+def get_thermo_inp_location() -> str:
+  """
+  Returns the location of the thermo.inp input file, which is used to generate thermo.lib.
+  The location may be overidden by the environment variable "CEA_THERMO_INP"
+
+  :return: 
+  """
+  return os.getenv("CEA_THERMO_INP", _get_data_file("thermo_spg.inp"))
+
+class Output(dict):
+  """ This is just a dictionary that you can also use dot notation to access """
   def __getattr__(self, name):
     return self[name]
+  
   def __setattr__(self, name, value):
     if name.startswith("_"):
       super().__setattr__(name, value)
     else:
       self[name] = value
+
+def move_file_if_changed(file: str, pack_file: str):
+  # file is the local destination, pack_file is the master location
+  if os.path.isfile(file):
+    # If the file is here, we check the hash of it against the package one
+    with open(pack_file, "rb") as f1, open(file, "rb") as f2:
+      pack_hash = crc32(f1.read())
+      local_hash = crc32(f2.read())
+    if pack_hash != local_hash: 
+      log.info(file+" hash does not match package file hash! Updating local file with one from package")
+      shutil.copyfile(pack_file, file)
+  else:
+    # If not here, copy it from package
+    log.info(file+" not found in current directory. Copying from package to current directory...")
+    shutil.copyfile(pack_file, file)
+
+def open_thermo_lib():
+  """ Opens the thermo library input file using the user's default .inp file viewer (should prompt if none) """
+  print("Opening thermo library .inp file using default .inp file viewer")
+  os.system(_get_data_file("thermo_spg.inp"))
+
+def open_pdfs():
+  """ Opens the NASA pdfs using the user's default pdf viewer """
+  print("Opening user manuals using default pdf viewer")
+  os.system('"'+_get_data_file("CEA_Mathematical_Analysis.pdf")+'"')
+  os.system('"'+_get_data_file("CEA_Users_Manual_and_Program_Description.pdf")+'"')
+  
+def print_assets_directory():
+  """
+    Just prints the directory where resources are
+  """
+  var = os.path.dirname(_get_data_file("FCEA2.exe"))
+  print(var)
+  return var
+
+###############################################################
+################### Data Helper Utilities #####################
+###############################################################
 
 def _mutually_exclusive(*args):
   join_set = set()
@@ -39,7 +164,7 @@ def _mutually_exclusive(*args):
     # Then update the current list of existing keys
     join_set.update(arg)
   return True # If none are combined, pass
-  
+
 class DataCollector(Output):
   def __init__(self, *args, keys=[], chamber_keys=[], throat_keys=[], exit_keys=[]):
     """
@@ -91,25 +216,24 @@ class DataCollector(Output):
     :param keys: If None, will use all keys in object. Otherwise, a sorted list.
     :param formatString: The string to python's string formatting utility for each value. Default 'f'. Could be like "10.4f" or similar
     """
-    logging.info("Writing to CSV!")
+    log.info("Writing to CSV!")
     if keys is None:
       keys = sorted(self._internal_keys)
     
     with open(filename, "w") as file:
       if len(keys) == 0:
-        logging.warning("Tried writing DataCollector object to CSV with no keys")
+        log.warning("Tried writing DataCollector object to CSV with no keys")
         return
       for key in keys:
         file.write(key+",")
       file.write("\n")
       length = len(self[keys[0]])
       if length == 0:
-        logging.debug("Writing DataCollector object to CSV with no values")
+        log.debug("Writing DataCollector object to CSV with no values")
       for i in range(length):
         for key in keys:
           file.write(("{:"+formatString+"},").format(self[key][i]))
         file.write("\n")
-        
 
 try:
   import numpy as np
@@ -144,103 +268,3 @@ try:
 except ImportError:
   import warnings
   warnings.warn("Numpy is not installed, 'NumpyDataCollector' module will not be available")
-
-def _get_asset(file: str) -> str:
-  # The reason the manager is used is because our package may be zipped and the manager extracts it
-  #   However, this package is not zip-safe so we just return the location
-  with importlib.resources.path(__package__+".assets", file) as manager:
-    return str(manager)
-    
-def _get_local_data_file(file: str) -> str:
-  # Returns a file location in our data directory
-  return os.path.join(local_assets_directory, file)
-  
-def _get_data_file(file: str) -> str:
-  # Get local data file if available. Otherwise revert to package assets
-  if use_local_assets:
-    return _get_local_data_file(file)
-  else:
-    return _get_asset(file)
-
-def cleanup_package_install() -> bool:
-  """
-  Cleans up directory structure after install.
-  NOTE: Should be called before any call to _get_asset! May change what directory to look in
-  Expected process:
-  1st run: There is no AppData folder, all assets are in site-packages\CEA_Wrap\assets folder
-           We create AppData\Local\CEA_Wrap and move all our assets there.
-  Subsequent runs: We check that the site-packages\CEA_Wrap\assets folder exists and it doesn't so we don't change anything
-  Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement,
-          so user thermo_spg.inp files are saved, but any missing assets are added
-  """
-  if using_pre_installed_assets: # If using pre-installed assets, we don't want to copy anything.
-    return False
-  try:
-    asset_dir = _get_asset("")
-    data_dir = _get_data_file("")
-    if os.path.isdir(asset_dir):
-      logging.debug("Doing assets existence moving: package assets directory exists, moving files to data directory")
-      logging.debug("Package Dir: " + asset_dir)
-      logging.debug("Data Dir:    " + data_dir)
-      if not os.path.isdir(data_dir): # Create our destination directory if it doesn't exist
-        logging.debug("Data directory didn't exist")
-        os.makedirs(data_dir)
-      for file in os.listdir(asset_dir):
-        if file == "__pycache__": # Evidently the assets thing creates a pycache when it looks for paths
-          continue
-        src_path = os.path.join(asset_dir, file)
-        dst_path = os.path.join(data_dir, file)
-        logging.debug("Checking file: " + file)
-        logging.debug(src_path + " ==> " + dst_path)
-        if not os.path.exists(dst_path): # If we don't already have a copy of this file
-          logging.debug("Copying file")
-          shutil.copy2(src_path, dst_path) # Copy it
-      return True
-    else:
-      return False # Nothing was changed because folder doesn't exist
-  except ModuleNotFoundError: # Raises this if directory doesn't exist
-    logging.debug("Assets directory doesn't exist")
-    return False
-  except PermissionError: # Unsure why this happens, happened to one person using Anaconda
-    global use_local_assets
-    logging.warning("Permission Error. Cannot create local assets directory. Thermo lib will be overwritten on update")
-    use_local_assets = False
-    return False
-
-def move_file_if_changed(file: str, pack_file: str):
-  # file is the local destination, pack_file is the master location
-  if os.path.isfile(file):
-    # If the file is here, we check the hash of it against the package one
-    with open(pack_file, "rb") as f1, open(file, "rb") as f2:
-      pack_hash = crc32(f1.read())
-      local_hash = crc32(f2.read())
-    if pack_hash != local_hash: 
-      logging.info(file+" hash does not match package file hash! Updating local file with one from package")
-      shutil.copyfile(pack_file, file)
-  else:
-    # If not here, copy it from package
-    logging.info(file+" not found in current directory. Copying from package to current directory...")
-    shutil.copyfile(pack_file, file)
-
-def open_thermo_lib():
-  """
-    Opens the attached thermo library input file using the user's default .inp file viewer (should prompt if none)
-  """
-  print("Opening user manuals using default .inp file viewer")
-  os.system(_get_data_file("thermo_spg.inp"))
-
-def open_pdfs():
-  """
-    Opens the attached NASA pdfs using the user's default pdf viewer
-  """
-  print("Opening user manuals using default pdf viewer")
-  os.system('"'+_get_data_file("CEA_Mathematical_Analysis.pdf")+'"')
-  os.system('"'+_get_data_file("CEA_Users_Manual_and_Program_Description.pdf")+'"')
-  
-def print_assets_directory():
-  """
-    Just prints the directory where resources are
-  """
-  var = os.path.dirname(_get_data_file("FCEA2.exe"))
-  print(var)
-  return var

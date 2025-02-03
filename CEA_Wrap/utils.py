@@ -1,14 +1,16 @@
 import importlib.resources, os, shutil
 import logging
 import platform
-
 from zlib import crc32
+
+from .utils_low import getenv_t_f
+
 log = logging.getLogger(__name__)
 
 local_assets_directory = os.getenv("CEA_ASSETS_DIR") # or None
 # If possible, use local assets rather than site-packages. But let the user force us to use just site-packages
 # Gets set to false if there is some error with using local site packages
-use_site_packages = bool(os.getenv("CEA_USE_SITE_PACKAGES"))
+use_site_packages = getenv_t_f("CEA_USE_SITE_PACKAGES", False)
 
 try_move_to_local = True # Whether or not we should try moving things from site packages
 if use_site_packages: # If they specify to use site packages, they probably don't want to create a local directory

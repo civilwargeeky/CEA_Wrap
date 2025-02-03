@@ -6,10 +6,11 @@ from typing import Optional, TextIO
 import logging
 
 from .utils import get_CEA_location, get_lib_locations
+from .utils_low import getenv_t_f
 
 log = logging.getLogger(__name__)
 
-DEFAULT_COPY_TO_TEMP_DIR = os.getenv("CEA_COPY_THERMO_TO_TEMP", True)
+DEFAULT_COPY_TO_TEMP_DIR = getenv_t_f("CEA_COPY_THERMO_TO_TEMP", True)
 
 class CEA:
   """

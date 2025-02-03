@@ -173,6 +173,18 @@ class ThermoInterface:
   def __getattr__(self, name):
     """ Allows for item access and all dict methods of thermo materials dict """
     return getattr(self.thermo_materials, name)
+  
+  def __getitem__(cls, name): # Allows ThermoInterface["CH4"]
+    return cls.thermo_materials[name]
+    
+  def __contains__(self, name): # Allows "CH4" in ThermoInterface
+    return name in self.thermo_materials
+    
+  def __iter__(self): # Allows list(ThermoInterface)
+    return iter(self.thermo_materials)
+    
+  def __len__(self):
+    return len(self.thermo_materials)
 
 
 def get_simple_thermo_lib_line(name: str, comment: str, atoms: dict[str: int], is_condensed: bool, 

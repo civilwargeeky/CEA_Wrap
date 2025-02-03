@@ -9,6 +9,8 @@ from .utils import get_CEA_location, get_lib_locations
 
 log = logging.getLogger(__name__)
 
+DEFAULT_COPY_TO_TEMP_DIR = os.getenv("CEA_COPY_THERMO_TO_TEMP", True)
+
 class CEA:
   """
   Objects of this class represent the locations of all files needed to run CEA and code for interacting with the CEA executable/backend
@@ -17,7 +19,7 @@ class CEA:
   DELIMITER = '+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+' # Delimeter in CEA output between .out and .plt files
 
   def __init__(self, CEA_path:Optional[str]=None, thermo_lib_path:Optional[str]=None, trans_lib_path:Optional[str]=None,
-               copy_to_temp_dir:bool=True, dump_out_on_error=True):
+               copy_to_temp_dir:bool=DEFAULT_COPY_TO_TEMP_DIR, dump_out_on_error=True):
     """
     Create a new CEA interface object. If paths are not given, they are taken from the default assets directory.
 
@@ -38,7 +40,7 @@ class CEA:
     self.original_trans_lib  = self.trans_lib_path  = default_trans_lib  if trans_lib_path  is None else trans_lib_path
 
     self._copy_to_temp_dir = False # Local variable
-    self._temporary_directory = None
+    self.temporary_directory = None
     self.copy_to_temp_dir = copy_to_temp_dir # getter/setter that handles file creation
 
     self.dump_out_on_error = dump_out_on_error
@@ -56,14 +58,18 @@ class CEA:
       return
     if new_value: # We need to create a new temporary directory
       # Note: This directory will be removed when this object is deleted, which happens when our CEA object is deleted
-      self._temporary_directory = tempfile.TemporaryDirectory(prefix="CEA_Wrap")
-      self.thermo_lib_path = os.path.join(self._temporary_directory, "thermo.lib")
-      self.trans_lib_path = os.path.join(self._temporary_directory, "trans.lib")
+      log.debug("Creating temporary directory for thermo.lib files")
+      self.temporary_directory = tempfile.TemporaryDirectory(prefix="CEA_Wrap_")
+      log.debug(f"Temporary folder created at '{self.temporary_directory.name}'")
+      self.thermo_lib_path = os.path.join(self.temporary_directory.name, "thermo.lib")
+      self.trans_lib_path = os.path.join(self.temporary_directory.name, "trans.lib")
       for src, dst in ((self.original_thermo_lib, self.thermo_lib_path), (self.original_trans_lib, self.trans_lib_path)):
+        log.debug(f"  Copying '{src}' to '{dst}'")
         shutil.copy(src, dst)
     else:
-      self._temporary_directory.cleanup() # explicitely delete files and folder before removing reference (probably not needed)
-      self._temporary_directory = None
+      log.debug(f"Cleaning up existing temporary directory in {self.temporary_directory.name}")
+      self.temporary_directory.cleanup() # explicitely delete files and folder before removing reference (probably not needed)
+      self.temporary_directory = None
       self.thermo_lib_path = self.original_thermo_lib # Reset our references
       self.trans_lib_path = self.original_trans_lib
 
@@ -82,11 +88,18 @@ class CEA:
         contents = f.read()
     elif file is not None:
       contents = file.read()
+    contents = contents.replace("\n", "\r\n")
 
     # Path to program, with arguments of thermo.lib location and trans.lib location
     arguments = [self.CEA_path, self.thermo_lib_path, self.trans_lib_path]
-    # Run the program, with file contents as input and capturing stdout and stderr as one
-    process = subprocess.run(arguments, input=contents, text=True, stdout=subprocess.STDOUT, stderr=subprocess.PIPE)
+    # Run the program, with file contents as input to stdin and capturing stdout
+    # NOTE: We cannot pass the contents in as a text buffer via PIPE, because CEA seeks forward *and backward* in the file
+    #       Default STDIN with a PIPE cannot seek backward, and results in undefined behavior.
+    # The temporary file is deleted after CEA is run
+    with tempfile.TemporaryFile(prefix="CEA_Wrap_") as io_file:
+      io_file.write(contents.encode("utf-8"))
+      io_file.seek(0)
+      process = subprocess.run(arguments, stdin=io_file, text=True, capture_output=True) #, stdout=subprocess.STDOUT, stderr=subprocess.PIPE)
     if process.returncode != 0:
       log.error(process)
       if self.dump_out_on_error:
@@ -95,7 +108,7 @@ class CEA:
             f.write(process.stdout)
         except Exception:
           raise RuntimeError(f"Running CEA failed with errors. Could not write output dump file")
-        else: # If we write the file successfully
+        else: # If we write the output error dump file successfully
           raise RuntimeError(f"Running CEA failed with errors. Output dumped to {self.OUT_ERROR_FILE}")
       else:
         raise RuntimeError("Running CEA failed with errors")

@@ -88,7 +88,7 @@ def get_CEA_location(legacy=False) -> str:
   :return: The location of CEA
   """
   base_name = "FCEA2" if legacy else "Dan_CEA2"
-  return os.getenv("CEA_EXE_LOCATION", f"{base_name}.exe" if platform.system() == "Windows" else base_name)
+  return os.getenv("CEA_EXE_LOCATION", get_asset(f"{base_name}.exe" if platform.system() == "Windows" else base_name))
 
 def get_lib_locations() -> tuple[str, str]:
   """

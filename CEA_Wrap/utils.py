@@ -84,7 +84,7 @@ if try_move_to_local: # If using pre-installed assets, we don't want to copy any
 
 def get_CEA_location(legacy=False) -> str:
   """
-  Returns the location of the CEA executable, which may be overidden by the "CEA_EXE_LOCATION" environment variable
+  Returns the location of the CEA executable, which may be overridden by the "CEA_EXE_LOCATION" environment variable
 
   :param legacy: If legacy, finds "FCEA2", otherwise finds "Dan_CEA2", defaults to False
   :return: The location of CEA
@@ -94,7 +94,7 @@ def get_CEA_location(legacy=False) -> str:
 
 def get_lib_locations() -> tuple[str, str]:
   """
-  Returns the locations of the thermo.lib and trans.lib, which may be overidden by the environment variables
+  Returns the locations of the thermo.lib and trans.lib, which may be overridden by the environment variables
     "CEA_THERMO_LIB" and "CEA_TRANS_LIB", respectively
 
   :return: 2-tuple of locations of thermo.lib and trans.lib
@@ -107,7 +107,7 @@ def get_lib_locations() -> tuple[str, str]:
 def get_thermo_inp_location() -> str:
   """
   Returns the location of the thermo.inp input file, which is used to generate thermo.lib.
-  The location may be overidden by the environment variable "CEA_THERMO_INP"
+  The location may be overridden by the environment variable "CEA_THERMO_INP"
 
   :return: 
   """
@@ -181,7 +181,7 @@ class DataCollector(Output):
     """
     DataCollector objects are Output objects that accepts lists of keys to make into lists
     :param keys: Also accepts list of arguments, these are keys such as 'cond' or 't_cp' or 'c_p'
-    :param chamber_keys: List of chamber species mol/mass fractions to be included in the output object. Ex: "H2O" or "CO2". The key in the ouptut will be the molecule name with "c_" prepended
+    :param chamber_keys: List of chamber species mol/mass fractions to be included in the output object. Ex: "H2O" or "CO2". The key in the output will be the molecule name with "c_" prepended
     :param throat_keys: List of nozzle throat species mol/mass fractions to be included. The key in the output will be the molecule name with "t_" prepended
     :param exit_keys: List of nozzle exit species mol/mass fractions to be included. The key in the output will be the molecule name with nothing prepended.
     """

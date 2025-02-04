@@ -5,6 +5,7 @@ import subprocess
 from typing import Optional, TextIO
 import logging
 
+
 from .utils import get_CEA_location, get_lib_locations
 from .utils_low import getenv_t_f
 
@@ -17,7 +18,7 @@ class CEA:
   Objects of this class represent the locations of all files needed to run CEA and code for interacting with the CEA executable/backend
   """
   OUT_ERROR_FILE = "CEA_Wrap_error.out"
-  DELIMITER = '+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+' # Delimeter in CEA output between .out and .plt files
+  DELIMITER = '+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+' # Delimiter in CEA output between .out and .plt files
 
   def __init__(self, CEA_path:Optional[str]=None, thermo_lib_path:Optional[str]=None, trans_lib_path:Optional[str]=None,
                copy_to_temp_dir:bool=DEFAULT_COPY_TO_TEMP_DIR, dump_out_on_error=True):
@@ -25,7 +26,7 @@ class CEA:
     Create a new CEA interface object. If paths are not given, they are taken from the default assets directory.
 
     :param CEA_path: Path to the CEA executable. This executable should accept a .inp file from STDIN
-                     and output both the .out and .plt files (separated by a delimiter) to STDOUT (not typical FCEA2 behaviour), defaults to None
+                     and output both the .out and .plt files (separated by a delimiter) to STDOUT (not typical FCEA2 behavior), defaults to None
     :param thermo_lib_path: Path the thermo.lib file, defaults to None
     :param trans_lib_path: Path to the trans.lib file, defaults to None
     :param copy_to_temp_dir: If True, thermo.lib and trans.lib will be copied to a temporary directory on initialization. This is useful
@@ -69,7 +70,7 @@ class CEA:
         shutil.copy(src, dst)
     else:
       log.debug(f"Cleaning up existing temporary directory in {self.temporary_directory.name}")
-      self.temporary_directory.cleanup() # explicitely delete files and folder before removing reference (probably not needed)
+      self.temporary_directory.cleanup() # explicitly delete files and folder before removing reference (probably not needed)
       self.temporary_directory = None
       self.thermo_lib_path = self.original_thermo_lib # Reset our references
       self.trans_lib_path = self.original_trans_lib
@@ -100,7 +101,7 @@ class CEA:
     with tempfile.TemporaryFile(prefix="CEA_Wrap_") as io_file:
       io_file.write(contents.encode("utf-8"))
       io_file.seek(0)
-      process = subprocess.run(arguments, stdin=io_file, text=True, capture_output=True) #, stdout=subprocess.STDOUT, stderr=subprocess.PIPE)
+      process = subprocess.run(arguments, stdin=io_file, text=True, capture_output=True)
     if process.returncode != 0:
       log.error(process)
       if self.dump_out_on_error:

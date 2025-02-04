@@ -1,6 +1,7 @@
 import re
 import logging
 from typing import List, Union, Optional
+import threading
 
 from .utils import Output
 from .cea_interface import CEA as CEA_Class
@@ -13,12 +14,18 @@ OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
 OPTIONS_ENTHALPY_UNITS = ["c", "kc", "j", "kj"] # options for enthalpy units. 'c' and 'kc' are "calorie" and "kilo-calorie (Calorie)"
 
 # Instantiate default objects used for all problems (using files defined within .utils.py)
-CEA = CEA_Class() 
+# Because CEA locks the thermo.lib and trans.lib files while running, only one instance of the executable can access those files at a time
+#   to allow for multiprocessing, each instance of CEA_Class will copy those files to a temporary directory
+#   To allow for threading, we could either a) use a global mutex on that subprocess call or b) create a temp directory per-thread
+#   To increase performance, we will create a temp-directory per-thread by default
+CEA_thread_dict = {
+  threading.get_ident(): CEA_Class()
+}
 ThermoInterface = ThermoInterface_Class()
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
-  is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overriden
+  is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overridden
   # If true, on initialization, we check if the material exists in the supplied thermo_spg input file
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True
@@ -44,7 +51,7 @@ class Material:
     elif wt_percent is not None and mols is not None:
       raise TypeError("Material cannot have both wt_percent and mols specified")
     
-    self.name = name 
+    self.name = name
     self.temp = temp
     self.wt_percent = wt_percent
     self.mols = mols
@@ -218,7 +225,12 @@ class Problem:
     self.ratio_value = None
     self._set_fuel_ratio(**kwargs)
     
-    diff = set(kwargs).difference(set(self._ratio_options))
+    if (curr_thread := threading.get_ident()) in CEA_thread_dict: # Get the CEA object local to our thread
+      self.CEA = CEA_thread_dict[curr_thread]
+    else: # If no thread-local object, instantiate a new one
+      self.CEA = CEA_thread_dict[curr_thread] = CEA_Class()
+    
+    diff = set(kwargs).difference(set(self._ratio_options)) # Find if kwargs contains any entries not in self._ratio_options
     if diff: # If there are any kwargs keys that aren't in _ratio_options keys, we should error
       raise TypeError(self.__class__.__name__+"() got an unexpected keyword argument(s): " + ",".join(diff))
     
@@ -264,7 +276,7 @@ class Problem:
     except OSError: # Sometimes things like dropbox lock the file so we can't access it
       raise RuntimeError("unable to open input file for writing...")
     
-    out_file, plt_file = CEA.run_cea_backend(contents=file_contents)
+    out_file, plt_file = self.CEA.run_cea_backend(contents=file_contents)
     return self.process_output(out_file, plt_file)
   
   def run_cea(self, *args, **kwargs): # alias for backward-compatibility
@@ -325,7 +337,7 @@ class Problem:
   
   def _error_check_thermo_out_line(self, error_line:str):
     # Either raises an error or does nothing
-    filePath = CEA.OUT_ERROR_FILE if CEA.dump_out_on_error else "(no output file dumped because of `dump_out_on_error` setting)"
+    filePath = self.CEA.OUT_ERROR_FILE if self.CEA.dump_out_on_error else "(no output file dumped because of `dump_out_on_error` setting)"
     prepend = "CEA Failed to Run. "
     errors = { # Errors. Keys are error keys in CEA output. Values are a string to print which are prepended with a string and appended with the file name
     "FATAL": "FATAL error in input/output file: ",
@@ -692,12 +704,12 @@ class RocketProblem(Problem):
       out.prod_f = Output()
     
     # Float map, mapping columns because the mapping isn't always 1,2,3
-    def flMap(splitline, key):
+    def flMap(split_line, key):
       if has_fac: # If finite area combustor, we have more columns
         mapping = {"c": 1, "f": 2, "t": 3, "e": end_col}
       else: # Otherwise, normal
         mapping = {"c": 1, "t": 2, "e": end_col}
-      return float(splitline[mapping[key]])
+      return float(split_line[mapping[key]])
     
     for line in out_file_content.splitlines():
         self._error_check_thermo_out_line(line)

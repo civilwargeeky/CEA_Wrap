@@ -1,10 +1,15 @@
+import os
 import re
 import logging
 from typing import List, Union, Optional
 import threading
 
 from .utils import Output
-from .cea_interface import CEA as CEA_Class
+from .utils_low import getenv_t_f
+if getenv_t_f("CEA_USE_LEGACY", False):
+  from .cea_interface import Legacy_CEA as CEA_Class
+else:
+  from .cea_interface import CEA as CEA_Class
 from .thermo_lib import ThermoInterface as ThermoInterface_Class
 
 log = logging.getLogger(__name__)

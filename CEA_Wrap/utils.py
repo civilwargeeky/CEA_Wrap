@@ -130,6 +130,7 @@ def move_file_if_changed(source: str, destination: str):
 
   :param source: The file path to the source file
   :param destination: The file path to the destination file
+  :return: the destination
   """
   # file is the local destination, pack_file is the master location
   if os.path.isfile(destination):
@@ -144,6 +145,7 @@ def move_file_if_changed(source: str, destination: str):
     # If not here, copy it from package
     log.info(destination+" not found in current directory. Copying from package to current directory...")
     shutil.copyfile(source, destination)
+  return destination
 
 def open_thermo_lib():
   """ Opens the thermo library input file using the user's default .inp file viewer (should prompt if none) """

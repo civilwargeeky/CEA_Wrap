@@ -38,19 +38,19 @@ print("-"*79,"\n")
 code2 = """
 # Define materials
 # at 400K, 12% of total composition
-aluminum = Fuel("AL(cr)", wt_percent=12, temp=400)
+aluminum = Fuel("AL(cr)", wt=12, temp=400)
 # htpb is only specified in our thermo lib at 298K +- 15K
-htpb = Fuel("HTPB", wt_percent=14)
+htpb = Fuel("HTPB", wt=14)
 # ammonium perchlorate
-ap = Oxidizer("NH4CLO4(I)", wt_percent=74, temp=400)
+ap = Oxidizer("NH4CLO4(I)", wt=74, temp=400)
 
 # Specify a RocketProblem with supersonic expansion ratio of 15 
 #   at chamber pressure of 1500 psi
 # We don't specify our phi or o_f as we want it to calculate that for us
 problem = RocketProblem(pressure=1500, sup=15, materials=[aluminum, htpb, ap])
-# sets the o_f ratio by summing wt_percent for each oxidizer and  fuel
+# sets the o_f ratio by summing wt for each oxidizer and  fuel
 #  and dividing by the sum for fuels
-# If you change material wt_percents, remember to call this again!
+# If you change material wts, remember to call this again!
 problem.set_absolute_o_f()
 
 data = problem.run()
@@ -65,18 +65,18 @@ print("Press Enter to Continue...")
 input()
 
 # at 400K, 12% of total composition
-aluminum = Fuel("AL(cr)", wt_percent=12, temp=400)
+aluminum = Fuel("AL(cr)", wt=12, temp=400)
 # htpb is only specified in our thermo lib at 298K +- 10K
-htpb = Fuel("HTPB", wt_percent=14)
+htpb = Fuel("HTPB", wt=14)
 # ammonium perchlorate
-ap = Oxidizer("NH4CLO4(I)", wt_percent=74, temp=400)
+ap = Oxidizer("NH4CLO4(I)", wt=74, temp=400)
 # Specify a RocketProblem with supersonic expansion ratio of 15 
 #   at chamber pressure of 1500 psi
 # We don't specify our phi or o_f as we want it to calculate that for us
 problem = RocketProblem(pressure=1500, sup=15, materials=[aluminum, htpb, ap])
-# sets the o_f ratio by summing wt_percent for each oxidizer and  fuel
+# sets the o_f ratio by summing wt for each oxidizer and  fuel
 #  and dividing by the sum for fuels
-# If you change material wt_percents, remember to call this again!
+# If you change material wts, remember to call this again!
 problem.set_absolute_o_f() 
 data = problem.run()
 

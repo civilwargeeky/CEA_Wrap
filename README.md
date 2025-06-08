@@ -125,7 +125,7 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 
 # Documentation
 
-### Material(name: str, temp: float = 298.15, wt_percent: float = None, mols: float = None, chemical_composition: str = None, hf: float = None) -> Material
+### Material(name: str, temp: float = 298.15, wt: float = None, mols: float = None, chemical_composition: str = None, hf: float = None) -> Material
 
 Creates a new material object with specified parameters. All parameters are also members of the class that have both getters and setters
 
@@ -138,11 +138,11 @@ Creates a new material object with specified parameters. All parameters are also
 - **`temp`** (`float`, _optional_, default=`298.15`): The specified reactant initial temperature in Kelvin.
   - If you try to specify a temperature which is not supported for this material in the thermo_spg.inp file, a ValueError will be raised. To prevent this check, set `Material.check_against_thermo_inp = False`.
 
-- **`wt_percent`** (`float`, _optional_, default=`None`): A weight-based percentage for the element.
+- **`wt`** (`float`, _optional_, default=`None`): A weight-based percentage for the element.
   - Weight percentages do not need to add up to 100 and are calculated on the ratio with other Fuels/Oxidizers.
 
 - **`mols`** (`float`, _optional_, default=`None`): A mol-based percentage for the element. Can be used as in `Oxidizer("O2", mols=1)` and `Oxidizer("N2", mols=3.76)` for air. (Note: CEA has "Air" as a separate reactant)
-  - **NOTE:** `wt_percent` and `mols` cannot be specified together. If neither is defined, the `Material` gets a `wt_percent` of 1.
+  - **NOTE:** `wt` and `mols` cannot be specified together. If neither is defined, the `Material` gets a `wt` of 1.
 
 - **`chemical_composition`** (`str`, _optional_, default=`None`): Chemical composition such as "LI 1 B 1 H 4" for LiBH4.
   - If defined, it will not use CEA default values. **NOTE: Not rigorously tested**
@@ -161,7 +161,7 @@ Creates a new material object with specified parameters. All parameters are also
 material = Material("CH4")
 
 # Example with optional parameters
-material = Material(name="AL(cr)", temp=300, wt_percent=50)
+material = Material(name="AL(cr)", temp=300, wt=50)
 
 # Example showing different use cases or edge cases
 material = Material(chemical_composition="LI 1 B 1 H 4", hf=-20)
@@ -206,12 +206,12 @@ Checks if the Material is set in mol ratio.
 is_mol = material.is_mols()
 ```
 
-#### is_wt_percent() -> bool
+#### is_wt() -> bool
 
 Checks if the Material is set in weight percentage.
 
 ```python
-is_wt_percent = material.is_wt_percent()
+is_wt = material.is_wt()
 ```
 
 ## `Problem(*, **kwargs) -> Problem`
@@ -230,7 +230,7 @@ Creates a new Problem object with specified parameters.
 
 - **`materials`** (`list`, *optional*, default=None): List of `Material` objects, order doesn't matter, of Oxidizer and Fuel objects e.g. materials=[material1, material2, ...].
   - Materials can also be specified when you run a problem like `problem.run_cea(material1, material2, ...)`.
-  - Materials MUST all have wt_percent specified or all have mols specified; cannot have mixtures.
+  - Materials MUST all have wt specified or all have mols specified; cannot have mixtures.
 
 - **`massf`** (`bool`, *optional*, default=False): CEA usually outputs product species in mole fractions. If massf is True, mass fractions are specified.
   - This parameter determines whether the output should be in mole fractions or mass fractions.

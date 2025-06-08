@@ -14,9 +14,9 @@ from time import time
 from CEA_Wrap import Fuel, Oxidizer, RocketProblem, DataCollector
 
 # For all the examples in this problem we'll use Aluminized AP/HTPB as the reactants
-aluminum = Fuel("AL(cr)", wt_percent=12) # (cr) for "crystalline" or condensed phase
-htpb = Fuel("HTPB", wt_percent=14) # This was added at Purdue so doesn't include (cr) in the name
-ap = Oxidizer("NH4CLO4(I)", wt_percent=74) # ammonium perchlorate (form I, specified at room temperature)
+aluminum = Fuel("AL(cr)", wt=12) # (cr) for "crystalline" or condensed phase
+htpb = Fuel("HTPB", wt=14) # This was added at Purdue so doesn't include (cr) in the name
+ap = Oxidizer("NH4CLO4(I)", wt=74) # ammonium perchlorate (form I, specified at room temperature)
 m_list = [aluminum, htpb, ap] # for convenience so I can pass it into all problems
 
 # We'll actually use the same problem for the first 3 examples
@@ -137,9 +137,9 @@ collector = DataCollector("c_t", "ivac") # Show chamber temperature and isp depe
 
 startTime = time()
 for al_percent in percent_aluminum:
-  aluminum.set_wt_percent(al_percent)
+  aluminum.wt = al_percent
   # NOTE: CEA doesn't like it when a material has 0%, so at 0% the material is not entered into the .inp file
-  ap.set_wt_percent(100-12-al_percent)
+  ap.wt = (100-12-al_percent)
   problem.set_absolute_o_f() # change our o/f to reflect situation
   collector.add_data(problem.run())
 endTime = time()

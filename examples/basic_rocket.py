@@ -53,23 +53,23 @@ print("Wow, that didn't change very much...")
 print("\n\nDoing Solid Rocket")
 
 ### METHOD 1: Calculate the o/f yourself
-AL = Fuel("AL(cr)", wt_percent=1/3) # AL is 1/3 of the fuels
-HTPB = Fuel("HTPB", wt_percent=2/3) # HTPB is 2/3 of the fuels
-AP = Oxidizer("NH4CLO4(I)", wt_percent=50/(50+20)) # The I and IV are different entries of the same molecule specified at different temperatures
-AN = Oxidizer("NH4NO3(IV)", wt_percent=20/(50+20))
+AL = Fuel("AL(cr)", wt=1/3) # AL is 1/3 of the fuels
+HTPB = Fuel("HTPB", wt=2/3) # HTPB is 2/3 of the fuels
+AP = Oxidizer("NH4CLO4(I)", wt=50/(50+20)) # The I and IV are different entries of the same molecule specified at different temperatures
+AN = Oxidizer("NH4NO3(IV)", wt=20/(50+20))
 
 problem2 = RocketProblem(pressure=1000, materials=[AL, HTPB, AP, AN], o_f = (50+20)/(10+20), sup=5)
 results = problem2.run()
 print("Temperature (K), Isp (s) =", results.t, results.isp)
 
 ### METHOD 2: Automatically Calculate o_f
-AL = Fuel("AL(cr)", wt_percent=10) # 10% of total
-HTPB = Fuel("HTPB", wt_percent=20) 
-AP = Oxidizer("NH4CLO4(I)", wt_percent=50) # The I and IV are different entries of the same molecule specified at different temperatures
-AN = Oxidizer("NH4NO3(IV)", wt_percent=20)
+AL = Fuel("AL(cr)", wt=10) # 10% of total
+HTPB = Fuel("HTPB", wt=20) 
+AP = Oxidizer("NH4CLO4(I)", wt=50) # The I and IV are different entries of the same molecule specified at different temperatures
+AN = Oxidizer("NH4NO3(IV)", wt=20)
 
 problem2 = RocketProblem(pressure=1000, materials=[AL, HTPB, AP, AN], sup=5)
-problem2.set_absolute_o_f() # Calculates o_f assuming that material wt_percents are relative to full mixture
+problem2.set_absolute_o_f() # Calculates o_f assuming that material weights are relative to full mixture
 results = problem2.run()
 print("Temperature (K), Isp (s) =", results.t, results.isp)
 

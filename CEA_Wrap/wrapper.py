@@ -52,6 +52,8 @@ def deprecated_setter(fcn: Callable):
   subfcn.__name__ = fcn.__name__
   return subfcn
 
+from typing import Never
+
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
   is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overridden
@@ -59,7 +61,8 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True
   
-  def __init__(self, name, temp:float=298.15, wt:float|None=None, mols:float|None=None, chemical_composition:ChemicalRepresentation|None=None):
+  def __init__(self, name, temp:float=298.15, wt:float|None=None, mols:float|None=None, chemical_composition:ChemicalRepresentation|None=None,
+               wt_percent:Never=None):
     """
     A material to put in the problem's .inp file. Can be specified inline or come from the thermo.lib
     If neither wt nor mols is specified, wt is 100
@@ -75,6 +78,10 @@ class Material:
     :raises ValueError: _description_
     :raises TypeError: _description_
     """
+    if wt_percent is not None:
+      import warnings
+      warnings.warn("The parameter has been renamed 'wt'. Setting wt_percent is no longer supported and will be removed in a future release.", DeprecationWarning)
+      wt = wt_percent
     if wt is None and mols is None: # If neither is specified, user probably doesn't care
       wt = 100
     elif wt is not None and mols is not None:
@@ -126,7 +133,7 @@ class Material:
   
   @mols.setter
   def mols(self, mols:float):
-    self._wt_percent = None # Can only have one
+    self._wt = None # Can only have one
     self._mols = mols
 
   @property
@@ -143,10 +150,10 @@ class Material:
   def chemical_composition(self):
     return self._chemical_composition # Cannot be set outside of constructor
     
-  def is_mols(self) -> bool: # Helper function for a material being in wt_percent or mols
+  def is_mols(self) -> bool: # Helper function for a material being in wt or mols
     return self.mols is not None
     
-  def is_wt_percent(self) -> bool: # Helper function for a material being in wt_percent or mols
+  def is_wt(self) -> bool: # Helper function for a material being in wt or mols
     return self._wt is not None
 
   def get_CEA_name_wt(self, wt_or_mol: str, amount: float) -> str:
@@ -155,8 +162,8 @@ class Material:
 
   def get_CEA_str(self) -> str:
     # Specify whether to use the str/val for weight or mols.
-    name = "wt" if self.is_wt_percent() else "mol"
-    ratio = self.wt if self.is_wt_percent() else self.mols
+    name = "wt" if self.is_wt() else "mol"
+    ratio = self.wt if self.is_wt() else self.mols
 
     if ratio > 0:
       string = self.get_CEA_name_wt(name, ratio)
@@ -333,7 +340,7 @@ class Problem(Generic[OutputType]):
     self.pressure_units = pressure_units
   
   def set_absolute_o_f(self) -> float:
-    # Set an o_f ratio assuming that the wt_percent of each of our materials is an absolute percentage
+    # Set an o_f ratio assuming that the wt of each of our materials is an absolute percentage
     sum_ox   = sum([item.wt for item in filter(lambda x: not x.is_fuel(), self.materials)], start=0.0)
     sum_fuel = sum([item.wt for item in filter(lambda x: x.is_fuel(), self.materials)], start=0.0)
     o_f = sum_ox/sum_fuel
@@ -368,8 +375,8 @@ class Problem(Generic[OutputType]):
     if any([not isinstance(x, Material) for x in material_list]):
       raise ValueError("all items in Problem material list must be Material objects")
     # First we need to check that all of our materials have either mole/wt fractions specified. No mixing.
-    # If the first element has a wt_percent, then we check that all elements have a wt_percent
-    if not all([(mat.is_mols() if material_list[0].is_mols() else mat.is_wt_percent()) for mat in material_list]):
+    # If the first element has a wt, then we check that all elements have a wt
+    if not all([(mat.is_mols() if material_list[0].is_mols() else mat.is_wt()) for mat in material_list]):
       raise ValueError("all materials must use wt percent or mol ratio, not a mixture of both")
 
     if any((type(x) == Material) for x in material_list):

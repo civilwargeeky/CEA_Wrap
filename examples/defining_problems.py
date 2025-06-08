@@ -54,9 +54,9 @@ pprint(data1)
 ## NOTE: percentages/mol ratios are intra-fuels and intra-oxidizers. Ratios between fuels and oxidizers are covered in the next section
 
 ## Material Example 1: Defining by weight percentage
-methane = Fuel("CH4", wt_percent=20)
-octane = Fuel("C8H18,isooctane", wt_percent=80)
-oxygen = Oxidizer("O2") # defaults to wt_percent=100
+methane = Fuel("CH4", wt=20)
+octane = Fuel("C8H18,isooctane", wt=80)
+oxygen = Oxidizer("O2") # defaults to wt=100
 
 data1 = HPProblem(phi=1).run(methane, octane, oxygen) # Stoichiometric between fuels and oxidizers, defaults 1000 psi
 
@@ -64,13 +64,13 @@ data1 = HPProblem(phi=1).run(methane, octane, oxygen) # Stoichiometric between f
 ## NOTE: In CEA you can also specify "Air" as an oxidizer, so this is a poor way to specify this problem for example's sake
 oxygen = Oxidizer("O2", mols=1)
 nitrogen = Oxidizer("N2", mols=3.76)
-methane = Fuel("CH4", mols=1) # Note: all materials must use mols or wt_percent, no mixing, so we must specify mols=1
+methane = Fuel("CH4", mols=1) # Note: all materials must use mols or wt, no mixing, so we must specify mols=1
 data2 = HPProblem(phi=1).run(oxygen, nitrogen, methane) # Stoichiometric methane/
 
 ## Material Example 3: Changing ratios after definition. This is especially useful in loops for materials
-methane = Fuel("CH4", wt_percent=20)
-octane = Fuel("C8H18,isooctane", wt_percent=80)
-oxygen = Oxidizer("O2") # defaults to wt_percent=100
+methane = Fuel("CH4", wt=20)
+octane = Fuel("C8H18,isooctane", wt=80)
+oxygen = Oxidizer("O2") # defaults to wt=100
 
 # Define our problem
 problem = HPProblem(phi=1, materials=[methane, octane, oxygen])
@@ -78,8 +78,8 @@ data3_1 = problem.run() # Run with original ratio
 
 # Change to a 50/50 ratio of the two
 ## NOTE: percentages do not need to add up to 100%! CEA calculates from sum of fuel/oxidizer percentages
-methane.set_wt_percent(1)
-octane.set_wt_percent(1)
+methane.wt = 1
+octane.wt = 1
 data3_2 = problem.run() # Run with new updated ratio
 
 ## Material Example 4: Specifying with temperatures
@@ -116,19 +116,19 @@ data2_2 = problem.run()
 
 ## Ratios Example 3: Helper function: absolute o/f ratios
 # So doing rocket problems with absolute percentages specified (not as percentage of fuel/oxidizer and o/f ratio specified)
-#   I got annoyed, so I wrote a helper function that calculates the o/f ratio from wt_percent of all constituents
+#   I got annoyed, so I wrote a helper function that calculates the o/f ratio from wt of all constituents
 # So we'll be doing a rocket problem with AP/Aluminum/HTPB
 # Define materials
-aluminum = Fuel("AL(cr)", wt_percent=12) # (cr) for "crystalline" or condensed phase
-htpb = Fuel("HTPB", wt_percent=14) # This was added at Purdue so doesn't include (cr) in the name
-ap = Oxidizer("NH4CLO4(I)", wt_percent=74) # ammonium perchlorate (form I, specified at room temperature)
+aluminum = Fuel("AL(cr)", wt=12) # (cr) for "crystalline" or condensed phase
+htpb = Fuel("HTPB", wt=14) # This was added at Purdue so doesn't include (cr) in the name
+ap = Oxidizer("NH4CLO4(I)", wt=74) # ammonium perchlorate (form I, specified at room temperature)
 
 # Specify a RocketProblem with supersonic expansion ratio of 15 at chamber pressure of 1500 psi
 # We don't specify our phi or o_f as we want it to calculate that for us
 problem = RocketProblem(pressure=1500, sup=15, materials=[aluminum, htpb, ap])
-# sets the o_f ratio by summing wt_percent for each oxidizer and  fuel
+# sets the o_f ratio by summing wt for each oxidizer and  fuel
 #  and dividing by the sum for fuels
-# If you change material wt_percents, remember to call this again!
+# If you change material wts, remember to call this again!
 problem.set_absolute_o_f() # sets o/f to (74)/(12+14)
 data4 = problem.run()
 

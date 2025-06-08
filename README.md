@@ -1,74 +1,3 @@
-## `function_name(param1: type, param2: type = default, *args, **kwargs) -> return_type`
-
-Short, concise description of what the function does in one line.
-
-### Parameters
-
-- **`param1`** (`type`): Detailed description of the first parameter. Explain its purpose, any constraints, or important characteristics.
-  - Example: What kind of input is expected?
-  - Any validation or preprocessing requirements?
-
-- **`param2`** (`type`, *optional*, default=`default_value`): Description of the optional parameter.
-  - Explain what happens if no value is provided
-  - Any specific behaviors or edge cases to be aware of
-
-- **`*args`** (`type`, *optional*): Description of variable positional arguments, if applicable.
-  - What kind of additional arguments can be passed?
-  - How are they used within the function?
-
-- **`**kwargs`** (`type`, *optional*): Description of variable keyword arguments, if applicable.
-  - What additional keyword arguments are supported?
-  - How do they modify the function's behavior?
-
-### Returns
-
-- `return_type`: Detailed description of what the function returns.
-  - What does the returned value represent?
-  - Any special conditions or potential return values?
-
-### Examples
-
-```python
-# Basic usage example
-result = function_name(arg1, arg2)
-
-# Example with optional parameters
-result = function_name(arg1, param2=value)
-
-# Example showing different use cases or edge cases
-result = function_name(special_arg, *additional_args)
-```
-
-### Notes
-
-- Any additional important information
-- Performance considerations
-- Potential side effects
-- Compatibility notes
-
-# TODO FOR VERSION 2.0
-
-Change how CEA is called to call with location of thermo.lib, location of trans.lib, input is the .inp file, output is the .out/.plt file
-  Upon instantiation, we should move our copy of the thermo.lib and trans.lib to a temporary folder (this is for multiprocessing/multithreading)
-    Perhaps we only do this if multiprocessing/multithreading is detected?
-Change how we actually parse CEA to get the vast majority of things from .plt file instead
-Add hecking types to everything! Make CEA output a dataclass. Geez.
-
-Add docstrings to all major functions
-
-## Environment Variables
-
-CEA_Wrap offers a variety of environment variables to customize the locations and behavior when accessing necessary files. In the below options, a "Truthy" value is something like "true", "yes", or "1". A "Falsy" value is something like "false", "no", or "0". This determination only looks at the first character and is case insensitive.
-
-- CEA_USE_SITE_PACKAGES: If set to some Truthy value, CEA_Wrap will not copy assets files to a local directory, instead using the site-packages where CEA_Wrap is installed. This may desired if using CEA_Wrap in a portable installation. This is not recommended if you make modifications to the thermo_spg.inp file, thermo.lib, or trans.lib, because these files will be overwritten if you update CEA_Wrap. DEFAULT: False
-- CEA_ASSETS_DIR: If set, CEA_Wrap will use this directory as the "local" directory for finding "assets" such as the CEA executable, thermo.lib, and documentation PDFs. If this is set, the "appdirs" library dependency is not required. This is ignored if CEA_USE_SITE_PACKAGES is set. DEFAULT: None (uses appdirs.user_data_directory)
-- CEA_EXE_LOCATION: If set, overrides the path to the CEA executable used for running CEA calculations
-- CEA_THERMO_LIB: If set, overrides the path to the thermo.lib file used by the CEA executable
-- CEA_TRANS_LIB: If set, overrides the path to the trans.lib file used by the CEA executable
-- CEA_THERMO_INP: If set, overrides the path to the thermo_spg.inp file used by the ThermoInterface in CEA_Wrap
-- CEA_COPY_THERMO_TO_TEMP: If set to some Truthy value, when a CEA object is instantiated (such as when you import CEA_Wrap), the thermo.lib and trans.lib from assets are copied to a temporary directory (by default). This enables multiprocessing because CEA holds a lock on the thermo.lib and trans.lib files while it is running, and will crash the program if two instances of CEA attempt to access the thermo.lib files at the same time. DEFAULT: True
-- CEA_USE_LEGACY: Uses a modified CEA interface that uses legacy logic for interacting with the original FCEA2 executable
-
 # CEA_Wrap
 
 A Python-Based wrapper for the NASA CEA Thermochemical Code
@@ -78,7 +7,7 @@ A Python-Based wrapper for the NASA CEA Thermochemical Code
 We are now on [PyPi!](https://pypi.org/project/CEA-Wrap/)
 In a command prompt type ```pip install --upgrade CEA_Wrap``` to upgrade/install CEA_Wrap
 
-You can import it as any other python module with ```import CEA_Wrap```. Whenever you import the file, it will put the required thermo.lib and trans.lib files into your current directory.
+You can import it as any other python module with ```import CEA_Wrap```
 
 ## Installation on Mac/Linux
 
@@ -86,36 +15,20 @@ On mac, the installation script will attempt to compile the fortran executable o
 On Linux, you will need to compile the fortran executable yourself.
 You can see a discussion from a successful user here: [Issue #1](https://github.com/civilwargeeky/CEA_Wrap/issues/1#issuecomment-1033918162)
 
-## Making A Portable Installation
+## Portable Installation
 
-As of version 1.7.4 (commit d4331d7), CEA Wrap can be used in a portable manner (without accessing user's program files or app data folders for storing assets).
-To download the package to be used as a portable installation, simply clone/download this repository.
+As of version 2.0, making a portable installation is even easier! This will initialize CEA to set itself up without accessing user's program files or app data folders for storing assets. Simply set the `CEA_USE_SITE_PACKAGES` environment variable before loading the code.
 
-To use this package in a portable manner, you must set the environment variable "CEA_ASSETS_DIR" to the directory where "assets" can be found **before** you import CEA_Wrap.
-Example structure:
+Details can be found in "Making A Portable Installation" at the bottom of the README
 
-```
-Your Code
-│   my_code.py 
-└───CEA_Wrap
-│   │   __init__.py
-│   │   __main__.py
-│   │   CEA.py
-│   │   ...
-│   └───assets
-│       │   FCEA2.exe
-│       │   thermo.lib
-│       │   ...
-```
+# New in Version 2
 
-Then in my_code.py you would do something like
+CEA_Wrap has undergone a partial rewrite in Version 2.0 to change the underlying way that many of the mechanisms work and more type hinting for those using IDEs to interact with it. A summary of major changes:
 
-```python
-import os
-os.environ["CEA_ASSETS_DIR"] = os.path.join("CEA_Wrap", "assets")
-from CEA_Wrap import Oxidizer, Fuel, RocketProblem
-...
-```
+1. **Enabled Multithreaded Support**: By creating a temporary directory containing the thermo.lib/trans.lib for each thread/process, we allow for hugely increased processing speeds when using multiple threads
+1. Vastly improved function documentation and type-hinting. For example: outputs from Problem.run() are now dataclasses, so their members are type-hinted. All major functions should have docstrings, so that cross-referencing this README is less-needed
+1. Rewrote some of cea.f to accept input from STDIN and write output to STDOUT. This eliminates the need to write/read .inp/.out/.plt files and speeds up processing on slower filesystems
+1. Added a variety of environment variables to allow for customization of interaction with CEA. Allows for using multiple thermo.lib files, for example.
 
 # Examples
 
@@ -459,6 +372,7 @@ problem.set_pressure_units("bar")
 ## `Problem.set_p_f(pf) -> None`
 
 Sets the percent fuel by weight for the problem.
+**WARNING**: There seems to be a bug in CEA itself that this option is simply interpreted as an alias for O/F ratio
 
 ### Parameters
 
@@ -680,6 +594,76 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
 - `add_data(data)` - Data should be the output from Problem.run(). Appends the output of the keys specified in the initializer to the object
 - `to_csv(filename, filename: str, keys:list=None, formatString="f"` - Writes the data to csv at **filename**, with the keys in **keys** (or all keys in this object if None)
      using **formatString** to format the csv entries
+
+## Environment Variables
+
+CEA_Wrap offers a variety of environment variables to customize the locations and behavior when accessing necessary files. In the below options, a "Truthy" value is something like "true", "yes", or "1". A "Falsy" value is something like "false", "no", or "0". This determination only looks at the first character and is case insensitive.
+
+Note: Most of these environment variables are only examined once on startup, so they must be set before the library is imported
+
+- `CEA_USE_SITE_PACKAGES`: If set to some Truthy value, CEA_Wrap will not copy assets files to a local directory, instead using the site-packages where CEA_Wrap is installed. This may desired if using CEA_Wrap in a portable installation. This is not recommended if you make modifications to the thermo_spg.inp file, thermo.lib, or trans.lib, because these files will be overwritten if you update CEA_Wrap. DEFAULT: False
+- `CEA_ASSETS_DIR`: If set, CEA_Wrap will use this directory as the "local" directory for finding "assets" such as the CEA executable, thermo.lib, and documentation PDFs. If this is set, the "appdirs" library dependency is not required. This is ignored if CEA_USE_SITE_PACKAGES is set. DEFAULT: None (uses appdirs.user_data_directory)
+- `CEA_EXE_LOCATION`: If set, overrides the path to the CEA executable used for running CEA calculations
+- `CEA_THERMO_LIB`: If set, overrides the path to the thermo.lib file used by the CEA executable
+- `CEA_TRANS_LIB`: If set, overrides the path to the trans.lib file used by the CEA executable
+- `CEA_THERMO_INP`: If set, overrides the path to the thermo_spg.inp file used by the ThermoInterface in CEA_Wrap
+- `CEA_COPY_THERMO_TO_TEMP`: If set to some Truthy value, when a CEA object is instantiated (such as when you import CEA_Wrap), the thermo.lib and trans.lib from assets are copied to a temporary directory (by default). This enables multiprocessing because CEA holds a lock on the thermo.lib and trans.lib files while it is running, and will crash the program if two instances of CEA attempt to access the thermo.lib files at the same time. DEFAULT: True
+- `CEA_USE_LEGACY`: Uses a modified CEA interface that uses legacy logic for interacting with the original FCEA2 executable
+
+## Making A Portable Installation
+
+To download the package to be used as a portable installation, simply clone/download this repository.
+
+### Installing/Using the portable installation
+
+In whatever environment you are using, you can navigate to the folder containing `setup.py`, then call `pip install -e .`
+
+This will install the current directory into your environment as an "editable" package. **Alternatively**, you can simply place your code in the same directory as the `setup.py` script. So your directory would look like:
+
+```
+My_Folder
+│   my_code.py   <<<<
+|   setup.py
+|   setup.cfg
+└───CEA_Wrap
+│   │   __init__.py
+│   │   __main__.py
+│   │   CEA.py
+│   │   ...
+│   └───assets
+│       │   FCEA2.exe
+│       │   thermo.lib
+│       │   ...
+```
+
+### Setting the environment variable
+
+Before you run your code, you must set the environment variable `CEA_USE_SITE_PACKAGES` to '1' or 'True' or similar. You must do this **before** you import CEA_Wrap. You can set the environment variable in a variety of ways. If your code is in "my_code.py", ...
+
+#### Set environment variables in Windows:
+
+```shell
+C:\My_Folder> set CEA_USE_SITE_PACKAGES=1
+C:\My_Folder> python my_code.py
+```
+
+#### Set environment variables in Linux:
+
+```bash
+~$ export CEA_USE_SITE_PACKAGES=1
+~$ python3 my_code.py
+```
+
+#### Set environment variable from within code
+
+`my_code.py`
+
+```python
+import os
+os.environ["CEA_USE_SITE_PACKAGES"] = '1'
+from CEA_Wrap import Oxidizer, Fuel, RocketProblem
+...
+```
 
 ## Adding materials/recompiling the thermo lib (advanced usage)
   

@@ -1,15 +1,18 @@
+import logging
 import os
 import re
-import logging
-from typing import Callable, Sequence
 import threading
+from dataclasses import dataclass, field
+from typing import Callable, Generic, Never, Sequence, TypeVar
 
-from .utils import Output, DictDataclass
 from .utils_low import getenv_t_f
+from .utils import DictDataclass, Output
+
 if getenv_t_f("CEA_USE_LEGACY", False):
   from .cea_interface import Legacy_CEA as CEA_Class
 else:
   from .cea_interface import CEA as CEA_Class
+
 from .thermo_lib import ThermoInterface as ThermoInterface_Class
 
 log = logging.getLogger(__name__)
@@ -28,7 +31,6 @@ CEA_thread_dict = {
 }
 ThermoInterface = ThermoInterface_Class()
 
-from dataclasses import dataclass, field
 
 @dataclass
 class ChemicalRepresentation:
@@ -52,7 +54,7 @@ def deprecated_setter(fcn: Callable):
   subfcn.__name__ = fcn.__name__
   return subfcn
 
-from typing import Never
+
 
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
@@ -128,7 +130,7 @@ class Material:
   @property
   def mols(self) -> float:
     if self._mols is None:
-      raise ValueError("Material had no modls")
+      raise ValueError("Material had no mols")
     return self._mols
   
   @mols.setter
@@ -151,7 +153,7 @@ class Material:
     return self._chemical_composition # Cannot be set outside of constructor
     
   def is_mols(self) -> bool: # Helper function for a material being in wt or mols
-    return self.mols is not None
+    return self._mols is not None
     
   def is_wt(self) -> bool: # Helper function for a material being in wt or mols
     return self._wt is not None
@@ -207,7 +209,6 @@ class Oxidizer(Material):
 
 O = Oxidizer # Alias
 
-from typing import Generic, TypeVar
 
 OutputType = TypeVar("OutputType")
 
@@ -296,7 +297,7 @@ class Problem(Generic[OutputType]):
     self.pressure = pressure
     self.pressure_units = None
     self.set_pressure_units(pressure_units)
-    self.filename = None
+    self.filename:str # Specify before setting
     self.set_filename(filename)
     
     # Check against thermo file for these to prevent errors
@@ -341,8 +342,8 @@ class Problem(Generic[OutputType]):
   
   def set_absolute_o_f(self) -> float:
     # Set an o_f ratio assuming that the wt of each of our materials is an absolute percentage
-    sum_ox   = sum([item.wt for item in filter(lambda x: not x.is_fuel(), self.materials)], start=0.0)
-    sum_fuel = sum([item.wt for item in filter(lambda x: x.is_fuel(), self.materials)], start=0.0)
+    sum_ox   = sum([item.wt for item in filter(lambda x: not x.is_fuel, self.materials)], start=0.0)
+    sum_fuel = sum([item.wt for item in filter(lambda x: x.is_fuel, self.materials)], start=0.0)
     o_f = sum_ox/sum_fuel
     self.set_o_f(o_f)
     return o_f
@@ -590,9 +591,10 @@ class HPOutput(DictDataclass):
   gammas: float
   gamma: float
   dLV_dLP_t: float
-  dLV_dLP_p: float
+  dLV_dLT_p: float
   cond: float
   pran: float
+  phi: float
 
 class HPProblem(Problem[HPOutput]):
   problem_type = "hp"
@@ -677,7 +679,7 @@ class TPMaterial(Material):
       self.parent = p
       self.output_type = self.parent.output_type
       self.is_fuel = self.parent.is_fuel
-      super().__init__(p.name, p.temp, p.wt, p.mols, p._chemical_composition)
+      super().__init__(p._name, p._temp, p._wt, p._mols, p._chemical_composition)
     except AttributeError:
       raise TypeError("TPMaterial must be derived from Material, but a '{}' object was supplied".format(type(parent)))
 
@@ -721,7 +723,7 @@ class TPProblem(HPProblem):
     return super().make_input_file(new_material_list)
 
 @dataclass(kw_only=True)
-class RocketOutput(DictDataclass):
+class FrozenRocketOutput(DictDataclass):
   """
   Data representation for rocket engine properties.
 
@@ -792,8 +794,6 @@ class RocketOutput(DictDataclass):
   :param t_pip: Ratio of pressure in chamber to pressure at throat
   """
   prod_c: Output
-  prod_t: Output
-  prod_e: Output
   massf: bool
   p: float
   t_p: float
@@ -843,12 +843,7 @@ class RocketOutput(DictDataclass):
   t_ivac: float
   cf: float
   t_cf: float
-  dLV_dLP_t: float
-  t_dLV_dLP_t: float
-  c_dLV_dLP_t: float
-  dLV_dLT_p: float
-  t_dLV_dLT_p: float
-  c_dLV_dLT_p: float
+  
   cstar: float
   mach: float
   o_f: float
@@ -858,8 +853,31 @@ class RocketOutput(DictDataclass):
   pip: float
   t_pip: float
 
+@dataclass(kw_only=True)
+class RocketOutput(FrozenRocketOutput):
+  """
+  Equilibrium problems have access to several other attributes, not present in Frozen flow
 
-class RocketProblem(Problem[RocketOutput]):
+  :param prod_t: Throat products
+  :param prod_e: Exit products
+  :param dLV_dLP_t: (dLV/dLP)t
+  :param t_dLV_dLP_t: Throat dLV/dLP
+  :param c_dLV_dLP_t: Chamber dLV/dLP
+  :param dLV_dLT_p: (dLV/dLT)p
+  :param t_dLV_dLT_p: Throat dLV/dLT
+  :param c_dLV_dLT_p: Chamber dLV/dLT
+  """
+  prod_t: Output
+  prod_e: Output
+  dLV_dLP_t: float
+  t_dLV_dLP_t: float
+  c_dLV_dLP_t: float
+  dLV_dLT_p: float
+  t_dLV_dLT_p: float
+  c_dLV_dLT_p: float
+
+
+class RocketProblem(Problem[RocketOutput|FrozenRocketOutput]):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip"
     
@@ -886,7 +904,7 @@ class RocketProblem(Problem[RocketOutput]):
     self.nozzle_ratio_value = [pip if pip else (sup if sup else sub), ] # 1-element array
     self.fac_type = None
     self.fac_value = None
-    self.analysis_type = None  # Specify before calling
+    self.analysis_type: str  # Specify before calling
     if fac_ac: self.set_fac_ac(fac_ac)
     if fac_ma: self.set_fac_ma(fac_ma)
     self.set_analysis_type(analysis_type, nfz, custom_nfz=custom_nfz)
@@ -899,7 +917,7 @@ class RocketProblem(Problem[RocketOutput]):
   
   def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value[-1] = pip
   
-  def set_analysis_type(self, analysis_type, nfz=None, custom_nfz=None):
+  def set_analysis_type(self, analysis_type: str, nfz=None, custom_nfz=None):
     analysis_type = analysis_type.lower()
     if nfz is not None and custom_nfz is not None:
       raise ValueError("cannot specify both nfz and custom_nfz. nfz= will be set automatically if custom_nfz is set")
@@ -948,7 +966,7 @@ class RocketProblem(Problem[RocketOutput]):
       to_ret.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(to_ret) + "\n"
   
-  def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput:
+  def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput|FrozenRocketOutput:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
@@ -1191,4 +1209,7 @@ class RocketProblem(Problem[RocketOutput]):
 
     out.massf = self.massf
 
-    return RocketOutput(**out)
+    if "frozen" in self.analysis_type:
+      return FrozenRocketOutput(**out)
+    else:
+      return RocketOutput(**out)

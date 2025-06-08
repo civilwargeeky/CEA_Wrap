@@ -1,6 +1,11 @@
-import importlib.resources, os, shutil
+import importlib.resources
 import logging
+import os
 import platform
+import shutil
+from collections.abc import MutableMapping
+from dataclasses import dataclass, fields
+from typing import Any, Iterator
 from zlib import crc32
 
 from .utils_low import getenv_t_f
@@ -17,7 +22,7 @@ if use_site_packages: # If they specify to use site packages, they probably don'
   try_move_to_local = False
 else:
   if local_assets_directory is None:
-    import appdirs # Only import this if they don't specify a directory specifically
+    import appdirs  # Only import this if they don't specify a directory specifically
     local_assets_directory = appdirs.user_data_dir(__package__, roaming=False)  # By default we use the user's app data directory
   else:
     try_move_to_local = False # If the user sets the environment variable, we assume they don't want to move anything from an installation directory
@@ -123,10 +128,6 @@ class Output(dict):
       super().__setattr__(name, value)
     else:
       self[name] = value
-
-from dataclasses import dataclass, fields
-from typing import Any, Iterator
-from collections.abc import MutableMapping
 
 @dataclass
 class DictDataclass(MutableMapping):

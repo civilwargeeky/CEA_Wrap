@@ -1,7 +1,7 @@
 import os
 import re
 import logging
-from typing import List, Union, Optional, ClassVar, Callable
+from typing import Callable, Sequence
 import threading
 
 from .utils import Output, DictDataclass
@@ -49,7 +49,7 @@ def deprecated_setter(fcn: Callable):
     import warnings
     warnings.warn(f"The function {fcn.__name__} is deprecated. Please use the setter instead", DeprecationWarning)
     fcn(*args, **kwargs)
-  subfcn.__name__ == fcn.__name__
+  subfcn.__name__ = fcn.__name__
   return subfcn
 
 class Material:
@@ -59,7 +59,7 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True
   
-  def __init__(self, name, temp:float=298.15, wt:float=None, mols:float=None, chemical_composition:Optional[ChemicalRepresentation]=None):
+  def __init__(self, name, temp:float=298.15, wt:float|None=None, mols:float|None=None, chemical_composition:ChemicalRepresentation|None=None):
     """
     A material to put in the problem's .inp file. Can be specified inline or come from the thermo.lib
     If neither wt nor mols is specified, wt is 100
@@ -108,7 +108,9 @@ class Material:
     return self._name
   
   @property
-  def wt(self):
+  def wt(self) -> float:
+    if self._wt is None:
+      raise ValueError("Material had no weight")
     return self._wt
   
   @wt.setter
@@ -117,7 +119,9 @@ class Material:
     self._wt = wt_percent
 
   @property
-  def mols(self):
+  def mols(self) -> float:
+    if self._mols is None:
+      raise ValueError("Material had no modls")
     return self._mols
   
   @mols.setter
@@ -143,7 +147,7 @@ class Material:
     return self.mols is not None
     
   def is_wt_percent(self) -> bool: # Helper function for a material being in wt_percent or mols
-    return self.wt_percent is not None
+    return self._wt is not None
 
   def get_CEA_name_wt(self, wt_or_mol: str, amount: float) -> str:
     """ Gives the actual line put into .inp files, minus potential hf strings or chemical composition. Not valid if self.composition is given """
@@ -151,8 +155,8 @@ class Material:
 
   def get_CEA_str(self) -> str:
     # Specify whether to use the str/val for weight or mols.
-    name = "wt" if self.wt_percent is not None else "mol"
-    ratio = self.wt_percent if self.wt_percent is not None else self.mols
+    name = "wt" if self.is_wt_percent() else "mol"
+    ratio = self.wt if self.is_wt_percent() else self.mols
 
     if ratio > 0:
       string = self.get_CEA_name_wt(name, ratio)
@@ -167,6 +171,7 @@ class Material:
   def __str__(self):
     return self.name
 
+  @property
   @deprecated_setter
   def wt_percent(self):
     return self.wt
@@ -202,11 +207,18 @@ OutputType = TypeVar("OutputType")
 class Problem(Generic[OutputType]):
   ### NOTE : ALL PROBLEM SUBCLASSES MUST SPECIFY PROBLEM TYPE AND PLOT KEYS ###
   problem_type = None
-  plt_keys = None # plt_keys should be a space-separated string of items to go into the "plt" command of FCEA2
+  plt_keys: str # plt_keys must be defined by subclasses. It should be a space-separated string of items to go into the "plt" command of FCEA2
   
   # If true, on initialization, we check if all inserts and omits exist in the supplied thermo_spg input file
   check_against_thermo_inp = True 
   
+  @classmethod
+  def _get_plt_keys(cls) -> str:
+    try:
+      return cls.plt_keys
+    except AttributeError:
+      raise NotImplementedError(f"Class {cls.__name__} should implement .plt_keys, but did not") from None
+
   _ratio_options = ["p_f", "f_o", "o_f", "phi", "r_eq"] # Possible function arguments
   _ratio_CEA =     ["%f",  "f/o", "o/f", "phi", "r"] # Values to put into CEA
   def _set_fuel_ratio(self, **kwargs):
@@ -220,7 +232,7 @@ class Problem(Generic[OutputType]):
         self.ratio_value = kwargs[kwarg_name] # Then get the float
         found_one = True
   
-  def _format_input_list(self, input_list:str|list[str]):
+  def _format_input_list(self, input_list: str | list[str] | list[Material] | None):
     """
     Transmutes the input_list to a list of names
        checks each element to ensure it is a valid material
@@ -247,11 +259,11 @@ class Problem(Generic[OutputType]):
   # All arguments must be specified by keyword
   def __init__(self, *, 
                pressure: float=1000, 
-               materials: List[Material]=None, 
+               materials: list[Material]|None=None, 
                massf: bool=False, 
                pressure_units: str="psi", 
-               inserts: Optional[str|list[str|Material]]=None, 
-               omits:   Optional[str|list[str|Material]]=None,
+               inserts: str | list[str] | list[Material] | None=None, 
+               omits:   str | list[str] | list[Material] | None=None,
                filename:str|None=None,
                **kwargs
                ):
@@ -273,7 +285,7 @@ class Problem(Generic[OutputType]):
     """
       
     self.massf = massf
-    self.materials = materials
+    self.materials: list[Material] = materials or []
     self.pressure = pressure
     self.pressure_units = None
     self.set_pressure_units(pressure_units)
@@ -304,10 +316,10 @@ class Problem(Generic[OutputType]):
   def set_r_eq(self, r_eq: float): self._set_fuel_ratio(r_eq=r_eq)
   
   def set_pressure(self, pressure: float): self.pressure = pressure
-  def set_materials(self, materials: List[Material]): self.materials = materials
+  def set_materials(self, materials: list[Material]): self.materials = materials
   def set_massf(self, massf: bool): self.massf = massf
-  def set_inserts(self, inserts: Union[str, List[Union[str, Material]]]): self.inserts = self._format_input_list(inserts)
-  def set_omits(self, omits: Union[str, List[Union[str, Material]]]): self.omits = self._format_input_list(omits)
+  def set_inserts(self, inserts: str | list[str] | list[Material] | None): self.inserts = self._format_input_list(inserts)
+  def set_omits(self, omits: str | list[str] | list[Material] | None): self.omits = self._format_input_list(omits)
 
   def set_filename(self, filename: str|None):
     if filename is not None:
@@ -322,17 +334,17 @@ class Problem(Generic[OutputType]):
   
   def set_absolute_o_f(self) -> float:
     # Set an o_f ratio assuming that the wt_percent of each of our materials is an absolute percentage
-    sum_ox   = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Oxidizer), self.materials)])
-    sum_fuel = sum([item.wt_percent for item in filter(lambda x: isinstance(x, Fuel), self.materials)])
+    sum_ox   = sum([item.wt for item in filter(lambda x: not x.is_fuel(), self.materials)], start=0.0)
+    sum_fuel = sum([item.wt for item in filter(lambda x: x.is_fuel(), self.materials)], start=0.0)
     o_f = sum_ox/sum_fuel
     self.set_o_f(o_f)
     return o_f
   
-  def run(self, *materials) -> OutputType:
+  def run(self, *materials:Material) -> OutputType:
     if self.ratio_name == None:
       raise TypeError("No reactant ratio specified, must set phi, or o/f, or %f, etc.")
     if len(materials) > 0: # If they specify materials, update our list
-      self.materials = materials
+      self.materials = list(materials)
     
     try:
       file_contents = self.make_input_file(self.materials)
@@ -347,7 +359,7 @@ class Problem(Generic[OutputType]):
     warnings.warn("run_cea is deprecated. Use 'run' instead", DeprecationWarning)
     return self.run(*args, **kwargs)
   
-  def make_input_file(self, material_list: List[Material]) -> str: # chamber conditions and materials list
+  def make_input_file(self, material_list: Sequence[Material]) -> str: # chamber conditions and materials list
     # Make sure we have some materials
     if material_list is None or len(material_list) == 0:
       raise ValueError("must specify at least one Material in Problem")
@@ -396,7 +408,7 @@ class Problem(Generic[OutputType]):
     return contents
   
   def get_plt_string(self) -> str:
-    return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
+    return f"   plot {self._get_plt_keys():s}\n" # specify string formatting so None errors
   
   def _error_check_thermo_out_line(self, error_line:str):
     # Either raises an error or does nothing
@@ -433,7 +445,7 @@ class Problem(Generic[OutputType]):
       if new_line[0] == '#':
         continue
       else:
-        for key, value in zip(self.plt_keys.split(" "), new_line):
+        for key, value in zip(self._get_plt_keys().split(" "), new_line):
           out[key] = float(value)
     return out
 
@@ -472,12 +484,12 @@ class DetonationProblem(Problem[DetonationOutput]):
   plt_keys = "p t h mw cp gammas phi vel mach rho son cond pran"
   
   def get_prefix_string(self):
-    toRet = [
+    to_ret = [
       str(self.problem_type),
       f"   p({self.pressure_units}) = {self.pressure:0.5f}",
       f"   {self.ratio_name} = {self.ratio_value:0.5f}",
     ]
-    return "\n".join(toRet) + "\n"
+    return "\n".join(to_ret) + "\n"
 
   def process_output(self, out_file_content:str, plt_file_content:str) -> DetonationOutput:
     out = Output()
@@ -517,7 +529,7 @@ class DetonationProblem(Problem[DetonationOutput]):
           if not line.strip():
             in_search_area = False
             continue
-          split = re.findall("\S+", line) # match by sections which are not whitespace
+          split = re.findall(r"\S+", line) # match by sections which are not whitespace
           key = split[0].lstrip("*") # remove any asterisks
           out.prod_c[key] = float(split[1])
         ### Detonation Products ###
@@ -525,7 +537,7 @@ class DetonationProblem(Problem[DetonationOutput]):
           if not line.strip():
             in_search_area = False
             continue
-          split = re.findall("\S+", line) # match by sections which are not whitespace
+          split = re.findall(r"\S+", line) # match by sections which are not whitespace
           key = split[0].replace("/","_").lower() # convert to usable format
           if key == "det": # This means we've gone past the p, t, m, rho / initial lines
             in_search_area = False
@@ -535,7 +547,7 @@ class DetonationProblem(Problem[DetonationOutput]):
         elif search_i == 0:
           if not line.strip(): # If this line is empty, skip it
             continue
-          split = re.findall("\S+", line) # match by sections which are not whitespace
+          split = re.findall(r"\S+", line) # match by sections which are not whitespace
           key = split[0]
           if key == "(dLV/dLP)t":
             out.dLV_dLP_t = float(split[1])
@@ -579,11 +591,11 @@ class HPProblem(Problem[HPOutput]):
   problem_type = "hp"
   plt_keys = "p t h mw cp gammas phi rho son cond pran"
   def get_prefix_string(self):
-    toRet = []
-    toRet.append("{}".format(self.problem_type))
-    toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
-    toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
-    return "\n".join(toRet) + "\n"
+    to_ret = []
+    to_ret.append("{}".format(self.problem_type))
+    to_ret.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
+    to_ret.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
+    return "\n".join(to_ret) + "\n"
   
   def process_output(self, out_file_content:str, plt_file_content:str) -> HPOutput:
     out = Output()
@@ -623,14 +635,14 @@ class HPProblem(Problem[HPOutput]):
           if not line.strip():
             in_search_area = False
             continue
-          split = re.findall("\S+", line) # match by sections which are not whitespace
+          split = re.findall(r"\S+", line) # match by sections which are not whitespace
           key = split[0].lstrip("*") # remove any asterisks
           out.prod_c[key] = float(split[1])
         ### Output gas products ###
         elif search_i == 0:
           if not line.strip(): # If this line is empty, skip it
             continue
-          split = re.findall("\S+", line) # match by sections which are not whitespace
+          split = re.findall(r"\S+", line) # match by sections which are not whitespace
           key = split[0]
           if key == "(dLV/dLP)t":
             out.dLV_dLP_t = float(split[1])
@@ -658,7 +670,7 @@ class TPMaterial(Material):
       self.parent = p
       self.output_type = self.parent.output_type
       self.is_fuel = self.parent.is_fuel
-      super().__init__(p.name, p.temp, p.wt_percent, p.mols, p._chemical_composition)
+      super().__init__(p.name, p.temp, p.wt, p.mols, p._chemical_composition)
     except AttributeError:
       raise TypeError("TPMaterial must be derived from Material, but a '{}' object was supplied".format(type(parent)))
 
@@ -689,14 +701,14 @@ class TPProblem(HPProblem):
     self.temperature_units = temperature_units
 
   def get_prefix_string(self):
-    toRet = []
-    toRet.append("{}".format(self.problem_type))
-    toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
-    toRet.append("   t({}) = {:0.5f}".format(self.temperature_units, self.temperature))
-    toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
-    return "\n".join(toRet) + "\n"
+    to_ret = []
+    to_ret.append("{}".format(self.problem_type))
+    to_ret.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
+    to_ret.append("   t({}) = {:0.5f}".format(self.temperature_units, self.temperature))
+    to_ret.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
+    return "\n".join(to_ret) + "\n"
   
-  def make_input_file(self, material_list: List[Material]): # chamber conditions and materials list
+  def make_input_file(self, material_list: list[Material]): # chamber conditions and materials list
     # Here we convert all the materials to TPMaterials before calling the main function, so that each one doesn't report temperature
     new_material_list = [TPMaterial(material) for material in material_list]
     return super().make_input_file(new_material_list)
@@ -844,9 +856,9 @@ class RocketProblem(Problem[RocketOutput]):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip"
     
-  def __init__(self, *args, sup: float=None, sub: float=None, ae_at: float=None, pip: float=None, 
-               analysis_type:str="equilibrium", fac_ac:float=None, fac_ma:float=None, nfz: int=None,
-               custom_nfz: float=None,
+  def __init__(self, *args, sup: float|None=None, sub: float|None=None, ae_at: float|None=None, pip: float|None=None, 
+               analysis_type:str="equilibrium", fac_ac:float|None=None, fac_ma:float|None=None, nfz: int|None=None,
+               custom_nfz: float|None=None,
                **kwargs
                ):
     super().__init__(*args, **kwargs)
@@ -903,10 +915,10 @@ class RocketProblem(Problem[RocketOutput]):
           raise ValueError("already had 'nfz=' in analysis type. Cannot specify multiple frozen locations")
         analysis_type = analysis_type + " nfz={}".format(nfz)
       # Modify plot keys to use frozen values
-      toPut = type(self).plt_keys # Get copy from class instance
+      to_put = type(self)._get_plt_keys() # Get copy from class instance
       for orig in ("isp", "ivac", "cf", "mach"):
-        toPut = toPut.replace(" "+orig, " "+orig+"fz", 1) # Add 'fz' to each of these properties
-      self.plt_keys = toPut
+        to_put = to_put.replace(" "+orig, " "+orig+"fz", 1) # Add 'fz' to each of these properties
+      self.plt_keys = to_put
     else:
       self.plt_keys = type(self).plt_keys # Get new copy from class instance
     self.analysis_type = analysis_type
@@ -919,15 +931,15 @@ class RocketProblem(Problem[RocketOutput]):
   def unset_fac(self): self.fac_type = None; self.fac_value = None
   
   def get_prefix_string(self):
-    toRet = list()
-    toRet.append("{} {}".format(self.problem_type, self.analysis_type))
-    toRet.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
-    toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
+    to_ret = list()
+    to_ret.append("{} {}".format(self.problem_type, self.analysis_type))
+    to_ret.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
+    to_ret.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
     # enable using multiple area ratio for custom frozen point
-    toRet.append("   {} = ".format(self.nozzle_ratio_name) + ",".join("{:0.5f}".format(rat) for rat in self.nozzle_ratio_value))
+    to_ret.append("   {} = ".format(self.nozzle_ratio_name) + ",".join("{:0.5f}".format(rat) for rat in self.nozzle_ratio_value))
     if self.fac_type:
-      toRet.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
-    return "\n".join(toRet) + "\n"
+      to_ret.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
+    return "\n".join(to_ret) + "\n"
   
   def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput:
     out = Output()
@@ -983,7 +995,7 @@ class RocketProblem(Problem[RocketOutput]):
             if not line.strip():
               in_search_area = False
               continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
+            split = re.findall(r"\S+", line) # match by sections which are not whitespace
             # So apparently in frozen calculations, the products come in multiple columns and only chamber
             if "frozen" in self.analysis_type:
               # Split them into pairs 2-by-2
@@ -1002,7 +1014,7 @@ class RocketProblem(Problem[RocketOutput]):
           elif search_i == 0:
             if not line.strip(): # If this line is empty, skip it
               continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
+            split = re.findall(r"\S+", line) # match by sections which are not whitespace
             key = split[0]
             if key == "(dLV/dLP)t": # Will not exist in frozen
               out.c_dLV_dLP_t = flMap(split, 'c')
@@ -1025,7 +1037,7 @@ class RocketProblem(Problem[RocketOutput]):
             if not line.strip(): # If this line is empty, skip it
               in_search_area = False
               continue
-            split = re.findall("\S+", line) # match by sections which are not whitespace
+            split = re.findall(r"\S+", line) # match by sections which are not whitespace
             key = split[0]
             if key == "CSTAR,":
               out.cstar = float(split[2])

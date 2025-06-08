@@ -115,7 +115,7 @@ def get_thermo_inp_location() -> str:
 
 class Output(dict):
   """ This is just a dictionary that you can also use dot notation to access """
-  def __getattr__(self, name):
+  def __getattr__(self, name) -> Any:
     return self[name]
   
   def __setattr__(self, name, value):

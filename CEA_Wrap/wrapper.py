@@ -784,9 +784,9 @@ class RocketOutput(DictDataclass):
   :param pip: Ratio of pressure in chamber to pressure at exit
   :param t_pip: Ratio of pressure in chamber to pressure at throat
   """
-  prod_c: dict[str, float]
-  prod_t: dict[str, float]
-  prod_e: dict[str, float]
+  prod_c: Output
+  prod_t: Output
+  prod_e: Output
   massf: bool
   p: float
   t_p: float

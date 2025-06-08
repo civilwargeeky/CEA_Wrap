@@ -1,10 +1,10 @@
 import os
 import re
 import logging
-from typing import List, Union, Optional
+from typing import List, Union, Optional, ClassVar, Callable
 import threading
 
-from .utils import Output
+from .utils import Output, DictDataclass
 from .utils_low import getenv_t_f
 if getenv_t_f("CEA_USE_LEGACY", False):
   from .cea_interface import Legacy_CEA as CEA_Class
@@ -28,6 +28,30 @@ CEA_thread_dict = {
 }
 ThermoInterface = ThermoInterface_Class()
 
+from dataclasses import dataclass, field
+
+@dataclass
+class ChemicalRepresentation:
+  chemical_composition: str
+  hf: float
+  hf_unit: str = "j"
+  is_internal_energy:bool = False
+  
+  def __post_init__(self):
+    if self.hf_unit not in OPTIONS_ENTHALPY_UNITS:
+      raise ValueError(f"hf_unit was '{self.hf_unit}' but must be one of {OPTIONS_ENTHALPY_UNITS}")
+  
+  def get_CEA_string(self):
+    return f"{self.chemical_composition} {'u' if self.is_internal_energy else 'h'},{self.hf_unit}/mol={self.hf:.5f}"
+
+def deprecated_setter(fcn: Callable):
+  def subfcn(*args, **kwargs):
+    import warnings
+    warnings.warn(f"The function {fcn.__name__} is deprecated. Please use the setter instead", DeprecationWarning)
+    fcn(*args, **kwargs)
+  subfcn.__name__ == fcn.__name__
+  return subfcn
+
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
   is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overridden
@@ -35,15 +59,15 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True
   
-  def __init__(self, name, temp:float=298.15, wt_percent:float=None, mols:float=None, chemical_composition:str=None, hf:float=None, hf_unit="kj"):
+  def __init__(self, name, temp:float=298.15, wt:float=None, mols:float=None, chemical_composition:Optional[ChemicalRepresentation]=None):
     """
     A material to put in the problem's .inp file. Can be specified inline or come from the thermo.lib
-    If neither wt_percent nor mols is specified, wt_percent is 100
+    If neither wt nor mols is specified, wt is 100
     If one of chemical_composition or hf is given, the other must be as well
 
     :param name: Name to input into CEA
     :param temp: temperature in K, defaults to 298.15K
-    :param wt_percent: Relative weight percent of this Material, defaults to None.
+    :param wt: Relative weight percent of this Material, defaults to None.
     :param mols: Mole ratio for this material, defaults to None
     :param chemical_composition: chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values, defaults to None
     :param hf: Enthalpy of formation, in kJ/`hf_type`. Must be defined if chemical_composition is, defaults to None
@@ -51,22 +75,16 @@ class Material:
     :raises ValueError: _description_
     :raises TypeError: _description_
     """
-    if wt_percent is None and mols is None: # If neither is specified, user probably doesn't care
-      wt_percent = 100
-    elif wt_percent is not None and mols is not None:
-      raise TypeError("Material cannot have both wt_percent and mols specified")
+    if wt is None and mols is None: # If neither is specified, user probably doesn't care
+      wt = 100
+    elif wt is not None and mols is not None:
+      raise TypeError("Material cannot have both wt and mols specified")
     
-    self.name = name
-    self.temp = temp
-    self.wt_percent = wt_percent
-    self.mols = mols
-    self.chemical_composition = chemical_composition
-    self.hf = hf
-    if (chemical_composition == None) ^ (hf == None): # XOR is true if exactly one is true
-      raise ValueError("Elements entered with exploded chemical formula or hf must have both")
-    self.hf_unit = hf_unit
-    if hf_unit not in OPTIONS_ENTHALPY_UNITS:
-      raise ValueError(f"hf_unit was '{hf_unit}' but must be one of {OPTIONS_ENTHALPY_UNITS}")
+    self._name = name
+    self._temp = temp
+    self._wt = wt
+    self._mols = mols
+    self._chemical_composition = chemical_composition
     
     self.ref = None
     if self.check_against_thermo_inp and not chemical_composition: # If they don't override thermo.lib data and we check for missing elements
@@ -84,19 +102,42 @@ class Material:
         string = f"specified material '{name}' does not exist at temperature {temp:0.2f} " +\
                   " (min, max) = ({:.2f}, {:0.2f})".format(min(ranges)[0], max(ranges)[1]) 
         raise ValueError(string)
-    
-  def set_wt_percent(self, wt_percent:float):
-    self.mols = None # Can only have one
-    self.wt_percent = wt_percent
+
+  @property
+  def name(self): # Name cannot be set outside of constructor
+    return self._name
   
-  def set_mols(self, mols:float):
-    self.wt_percent = None # Can only have one
-    self.mols = mols
-    
-  def set_temp(self, temp:float):
+  @property
+  def wt(self):
+    return self._wt
+  
+  @wt.setter
+  def wt(self, wt_percent:float):
+    self._mols = None # Can only have one
+    self._wt = wt_percent
+
+  @property
+  def mols(self):
+    return self._mols
+  
+  @mols.setter
+  def mols(self, mols:float):
+    self._wt_percent = None # Can only have one
+    self._mols = mols
+
+  @property
+  def temp(self):
+    return self._temp
+
+  @temp.setter
+  def temp(self, temp:float):
     if self.check_against_thermo_inp and not ThermoInterface[self.name].defined_at(temp):
       raise ValueError(f"specified material '{self.name}' does not exist at temperature {temp:0.2f}")
-    self.temp=temp
+    self._temp=temp
+  
+  @property
+  def chemical_composition(self):
+    return self._chemical_composition # Cannot be set outside of constructor
     
   def is_mols(self) -> bool: # Helper function for a material being in wt_percent or mols
     return self.mols is not None
@@ -106,25 +147,41 @@ class Material:
 
   def get_CEA_name_wt(self, wt_or_mol: str, amount: float) -> str:
     """ Gives the actual line put into .inp files, minus potential hf strings or chemical composition. Not valid if self.composition is given """
-    return "   {}={} {}={:0.5f}  t,k={:0.5f}".format(self.output_type, self.name, wt_or_mol, amount, self.temp)
+    return f"   {self.output_type}={self.name} {wt_or_mol}={amount:0.5f}  t,k={self.temp:0.5f}"
 
   def get_CEA_str(self) -> str:
     # Specify whether to use the str/val for weight or mols.
-    name, ratio = "wt" if self.wt_percent is not None else "mol", self.wt_percent if self.wt_percent is not None else self.mols
-    if ratio < 0:
-      raise ValueError("Cannot have {} with <0 {} percent!".format(self.name, name))
-    elif ratio == 0: # This allows us to not include materials that are set to 0 percent
-      return ""
-    else:
+    name = "wt" if self.wt_percent is not None else "mol"
+    ratio = self.wt_percent if self.wt_percent is not None else self.mols
+
+    if ratio > 0:
       string = self.get_CEA_name_wt(name, ratio)
-      if self.hf:
-        string += " h,{}/mol={:0.5f}".format(self.hf_unit, self.hf)
-      if self.chemical_composition:
-        string += " " + self.chemical_composition
-      return string + " \n"
+      if self._chemical_composition:
+        string += self._chemical_composition.get_CEA_string()
+      return string + "\n"
+    elif ratio == 0: # This allows us to not include materials that are set to 0
+      return ""
+    else: # If ratio < 0
+      raise ValueError("Cannot have {} with <0 {} percent!".format(self.name, name))
       
   def __str__(self):
     return self.name
+
+  @deprecated_setter
+  def wt_percent(self):
+    return self.wt
+
+  @deprecated_setter
+  def set_wt_percent(self, wt_percent:float):
+    self.wt = wt_percent # Call new setter
+  
+  @deprecated_setter
+  def set_mols(self, mols:float):
+    self.mols = mols # Call new setter
+  
+  @deprecated_setter
+  def set_temp(self, temp:float):
+    self.temp = temp # Call new setter
       
 class Fuel(Material):
   output_type = "fuel"
@@ -138,10 +195,11 @@ class Oxidizer(Material):
 
 O = Oxidizer # Alias
 
-## TODO: Can also have composite Fuel/Oxidizer made up of percentages of other components
-  
-# My idea is that we could have different types of problems with similar methods for like get_prefix_string and things
-class Problem:
+from typing import Generic, TypeVar
+
+OutputType = TypeVar("OutputType")
+
+class Problem(Generic[OutputType]):
   ### NOTE : ALL PROBLEM SUBCLASSES MUST SPECIFY PROBLEM TYPE AND PLOT KEYS ###
   problem_type = None
   plt_keys = None # plt_keys should be a space-separated string of items to go into the "plt" command of FCEA2
@@ -270,7 +328,7 @@ class Problem:
     self.set_o_f(o_f)
     return o_f
   
-  def run(self, *materials) -> Output:
+  def run(self, *materials) -> OutputType:
     if self.ratio_name == None:
       raise TypeError("No reactant ratio specified, must set phi, or o/f, or %f, etc.")
     if len(materials) > 0: # If they specify materials, update our list
@@ -358,8 +416,7 @@ class Problem:
       if key in error_line:
         raise RuntimeError(prepend + value + filePath)
     
-  
-  def process_output(self, out_file_content:str, plt_file_content:str) -> Output:
+  def process_output(self, out_file_content:str, plt_file_content:str) -> OutputType:
     """
     Processes the output generated by CEA, taking the contents of the .out file and .plt file to generate output
 
@@ -384,7 +441,33 @@ class Problem:
   def get_prefix_string(self) -> str:
     raise NotImplementedError()
 
-class DetonationProblem(Problem):
+@dataclass(kw_only=True)
+class DetonationOutput(DictDataclass):
+  prod_c: dict[str, float]
+  massf: bool
+  p: float
+  t: float
+  h: float
+  rho: float
+  son: float
+  visc: float
+  mw: float
+  cp: float
+  gammas: float
+  gamma: float
+  vel: float
+  mach: float
+  p_p1: float
+  t_t1: float
+  m_m1: float
+  rho_rho1: float
+  dLV_dLP_t: float
+  dLV_dLP_p: float
+  cond: float
+  pran: float
+  phi: float
+
+class DetonationProblem(Problem[DetonationOutput]):
   problem_type = "det"
   plt_keys = "p t h mw cp gammas phi vel mach rho son cond pran"
   
@@ -396,7 +479,7 @@ class DetonationProblem(Problem):
     ]
     return "\n".join(toRet) + "\n"
 
-  def process_output(self, out_file_content:str, plt_file_content:str) -> Output:
+  def process_output(self, out_file_content:str, plt_file_content:str) -> DetonationOutput:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
@@ -468,10 +551,31 @@ class DetonationProblem(Problem):
     
     # Also include the actual gamma and not just the isentropic gamma
     out.gamma = out.gammas*-out.dLV_dLP_t
+
+    out.massf = self.massf
     
-    return out
-    
-class HPProblem(Problem):
+    return DetonationOutput(**out)
+
+@dataclass(kw_only=True)
+class HPOutput(DictDataclass):
+  prod_c: dict[str, float]
+  massf: bool
+  p: float
+  t: float
+  h: float
+  rho: float
+  son: float
+  visc: float
+  mw: float
+  cp: float
+  gammas: float
+  gamma: float
+  dLV_dLP_t: float
+  dLV_dLP_p: float
+  cond: float
+  pran: float
+
+class HPProblem(Problem[HPOutput]):
   problem_type = "hp"
   plt_keys = "p t h mw cp gammas phi rho son cond pran"
   def get_prefix_string(self):
@@ -481,7 +585,7 @@ class HPProblem(Problem):
     toRet.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
     return "\n".join(toRet) + "\n"
   
-  def process_output(self, out_file_content:str, plt_file_content:str) -> Output:
+  def process_output(self, out_file_content:str, plt_file_content:str) -> HPOutput:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
@@ -542,8 +646,10 @@ class HPProblem(Problem):
     
     # Also include the actual gamma and not just the isentropic gamma
     out.gamma = out.gammas*-out.dLV_dLP_t
+
+    out.massf = self.massf
     
-    return out
+    return HPOutput(**out)
 
 class TPMaterial(Material):
   def __init__(self, parent: Material):
@@ -552,7 +658,7 @@ class TPMaterial(Material):
       self.parent = p
       self.output_type = self.parent.output_type
       self.is_fuel = self.parent.is_fuel
-      super().__init__(p.name, p.temp, p.wt_percent, p.mols, p.chemical_composition, p.hf, p.hf_unit)
+      super().__init__(p.name, p.temp, p.wt_percent, p.mols, p._chemical_composition)
     except AttributeError:
       raise TypeError("TPMaterial must be derived from Material, but a '{}' object was supplied".format(type(parent)))
 
@@ -595,7 +701,146 @@ class TPProblem(HPProblem):
     new_material_list = [TPMaterial(material) for material in material_list]
     return super().make_input_file(new_material_list)
 
-class RocketProblem(Problem):
+@dataclass(kw_only=True)
+class RocketOutput(DictDataclass):
+  """
+  Data representation for rocket engine properties.
+
+  :param prod_c: Chamber products
+  :param prod_t: Throat products
+  :param prod_e: Exit products
+  :param p: Pressure, bar
+  :param t_p: Throat pressure
+  :param c_p: Chamber pressure
+  :param t: Temperature, Kelvin
+  :param t_t: Throat temperature
+  :param c_t: Chamber temperature
+  :param h: Enthalpy, kJ/kg
+  :param t_h: Throat enthalpy
+  :param c_h: Chamber enthalpy
+  :param rho: Density, kg/m^3
+  :param t_rho: Throat density
+  :param c_rho: Chamber density
+  :param son: Sonic velocity, m/s
+  :param t_son: Throat sonic velocity
+  :param c_son: Chamber sonic velocity
+  :param visc: Burned gas viscosity, Pascal-Seconds
+  :param t_visc: Throat viscosity
+  :param c_visc: Chamber viscosity
+  :param cond: Burned gas thermal conductivity, W/(m K)
+  :param t_cond: Throat thermal conductivity
+  :param c_cond: Chamber thermal conductivity
+  :param pran: Burned gas Prandtl number
+  :param t_pran: Throat Prandtl number
+  :param c_pran: Chamber Prandtl number
+  :param mw: Molecular weight of all products, kg/kmol
+  :param t_mw: Throat molecular weight
+  :param c_mw: Chamber molecular weight
+  :param m: Molecular weight considering condensed phases, kg/kmol
+  :param t_m: Throat molecular weight
+  :param c_m: Chamber molecular weight
+  :param condensed: True if condensed phase products exist
+  :param t_condensed: Throat condensed phase existence
+  :param c_condensed: Chamber condensed phase existence
+  :param cp: Constant-pressure specific heat capacity, kJ/(kg*K)
+  :param t_cp: Throat cp
+  :param c_cp: Chamber cp
+  :param gammas: Isentropic ratio of specific heats
+  :param t_gammas: Throat gammas
+  :param c_gammas: Chamber gammas
+  :param gamma: Real ratio of specific heats
+  :param t_gamma: Throat gamma
+  :param c_gamma: Chamber gamma
+  :param isp: Ideal ISP (ambient pressure = exit pressure), s
+  :param t_isp: Throat ISP
+  :param ivac: Vacuum ISP, s
+  :param t_ivac: Throat vacuum ISP
+  :param cf: Ideally expanded thrust coefficient
+  :param t_cf: Throat CF
+  :param dLV_dLP_t: (dLV/dLP)t
+  :param t_dLV_dLP_t: Throat dLV/dLP
+  :param c_dLV_dLP_t: Chamber dLV/dLP
+  :param dLV_dLT_p: (dLV/dLT)p
+  :param t_dLV_dLT_p: Throat dLV/dLT
+  :param c_dLV_dLT_p: Chamber dLV/dLT
+  :param cstar: Characteristic velocity in chamber, m/s
+  :param mach: Mach number at exhaust
+  :param o_f: Oxidizer/Fuel weight ratio
+  :param phi: Weight-based equivalence ratio of oxidizer/fuel
+  :param ae: Ratio of area at exit to area at throat
+  :param t_ae: Throat area ratio (always 1)
+  :param pip: Ratio of pressure in chamber to pressure at exit
+  :param t_pip: Ratio of pressure in chamber to pressure at throat
+  """
+  prod_c: dict[str, float]
+  prod_t: dict[str, float]
+  prod_e: dict[str, float]
+  massf: bool
+  p: float
+  t_p: float
+  c_p: float
+  t: float
+  t_t: float
+  c_t: float
+  h: float
+  t_h: float
+  c_h: float
+  rho: float
+  t_rho: float
+  c_rho: float
+  son: float
+  t_son: float
+  c_son: float
+  visc: float
+  t_visc: float
+  c_visc: float
+  cond: float
+  t_cond: float
+  c_cond: float
+  pran: float
+  t_pran: float
+  c_pran: float
+  mw: float
+  t_mw: float
+  c_mw: float
+  m: float
+  t_m: float
+  c_m: float
+  condensed: bool
+  t_condensed: bool
+  c_condensed: bool
+  cp: float
+  t_cp: float
+  c_cp: float
+  gammas: float
+  t_gammas: float
+  c_gammas: float
+  gamma: float
+  t_gamma: float
+  c_gamma: float
+  isp: float
+  t_isp: float
+  ivac: float
+  t_ivac: float
+  cf: float
+  t_cf: float
+  dLV_dLP_t: float
+  t_dLV_dLP_t: float
+  c_dLV_dLP_t: float
+  dLV_dLT_p: float
+  t_dLV_dLT_p: float
+  c_dLV_dLT_p: float
+  cstar: float
+  mach: float
+  o_f: float
+  phi: float
+  ae: float
+  t_ae: float
+  pip: float
+  t_pip: float
+
+
+class RocketProblem(Problem[RocketOutput]):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip"
     
@@ -684,7 +929,7 @@ class RocketProblem(Problem):
       toRet.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(toRet) + "\n"
   
-  def process_output(self, out_file_content: str, plt_file_content: str) -> Output:
+  def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
@@ -925,4 +1170,6 @@ class RocketProblem(Problem):
       out.c_gamma = out.c_gammas*-out.c_dLV_dLP_t
       out.t_gamma = out.t_gammas*-out.t_dLV_dLP_t
 
-    return out
+    out.massf = self.massf
+
+    return RocketOutput(**out)

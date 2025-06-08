@@ -124,6 +124,52 @@ class Output(dict):
     else:
       self[name] = value
 
+from dataclasses import dataclass, fields
+from typing import Any, Iterator
+from collections.abc import MutableMapping
+
+@dataclass
+class DictDataclass(MutableMapping):
+    """A dataclass that also supports dictionary-like access and methods."""
+    
+    def __getitem__(self, key: str) -> Any:
+        """Allow dictionary-style access: obj['field']"""
+        if not hasattr(self, key):
+            raise KeyError(key)
+        return getattr(self, key)
+    
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Allow dictionary-style assignment: obj['field'] = value"""
+        if not hasattr(self, key):
+            raise KeyError(key)
+        setattr(self, key, value)
+    
+    def __delitem__(self, key: str) -> None:
+        """Allow dictionary-style deletion: del obj['field']"""
+        if not hasattr(self, key):
+            raise KeyError(key)
+        delattr(self, key)
+    
+    def __iter__(self) -> Iterator[str]:
+        """Enable iteration over fields"""
+        return iter(f.name for f in fields(self))
+    
+    def __len__(self) -> int:
+        """Return number of fields"""
+        return len(fields(self))
+    
+    def items(self):
+        """Return (key, value) pairs"""
+        return ((f.name, getattr(self, f.name)) for f in fields(self))
+    
+    def keys(self):
+        """Return field names"""
+        return (f.name for f in fields(self))
+    
+    def values(self):
+        """Return field values"""
+        return (getattr(self, f.name) for f in fields(self))
+
 def move_file_if_changed(source: str, destination: str):
   """
   Copies the file at `source` to `destination` if a) `destination` does not exist or b) the CRC32 of `destination` does not match that of `source`

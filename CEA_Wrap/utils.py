@@ -170,6 +170,9 @@ class DictDataclass(MutableMapping):
     def values(self):
         """Return field values"""
         return (getattr(self, f.name) for f in fields(self))
+    
+    def to_dict(self) -> dict[str, Any]:
+      return {k:v for k, v in self.items()}
 
 def move_file_if_changed(source: str, destination: str):
   """
@@ -238,6 +241,7 @@ class DataCollector(Output):
       if keys:
         raise TypeError("Data_Collector should not receive both a list of arguments and the 'keys' keyword")
       keys = list(args)
+    self._independent_variable=list()
     self._keys = keys
     self._chamber_keys = chamber_keys
     self._throat_keys = throat_keys
@@ -253,13 +257,30 @@ class DataCollector(Output):
     for key in self._internal_keys:
       self[key] = list()
   
-  def add_data(self, data: Output):
+  @property
+  def independent_variable(self):
+    return self._independent_variable.copy()
+  
+  def sort(self):
+    if len(self.independent_variable) != len(self[self._keys[0]]):
+      raise ValueError("Independent variable array is not the same size as data arrays")
+     # Sort indices by values: Enumerate returns iterator of (index, value). We then sort those by value (ascending). Make a list of the sorted indices
+    index_order = [index for index, value in sorted(enumerate(self.independent_variable), key=lambda item: item[1])]
+    # Re-order each internal list by the sorted index order
+    for key in self._internal_keys:
+      # https://stackoverflow.com/a/3260459
+      self[key] = [self[key][index] for index in index_order]
+
+  def add_data(self, data: Output|dict[str,Any], independent_variable=None):
     def try_add(key, inner):
       try:
         self[key].append(data[inner][key])
       except KeyError:
         self[key].append(0)
-  
+
+    if independent_variable is not None:
+      self._independent_variable.append(independent_variable)
+
     for key in self._keys:
       self[key].append(data[key])
     for key in self._chamber_keys: # First go through chamber products
@@ -269,7 +290,7 @@ class DataCollector(Output):
     for key in self._exit_keys: # Then go through exit products
       try_add(key, "prod_e")
       
-  def to_csv(self, filename: str, keys:list=None, formatString="f"):
+  def to_csv(self, filename: str, keys:list[str]|None=None, formatString="f"):
     """
     Writes all data to a csv, with the specified keys. If keys not given, uses all keys in order
     :param filename: The path at which to open a csv and write to it. Overwrites existing files

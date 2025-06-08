@@ -135,15 +135,15 @@ percent_aluminum = np.linspace(0, 25, 250) # run percentage of aluminum from 0% 
 # reminder: 12% HTPB, and we'll reduce the amount of AP to compensate
 collector = DataCollector("c_t", "ivac") # Show chamber temperature and isp dependence on % aluminum
 
-startTime = time()
+start_time = time()
 for al_percent in percent_aluminum:
   aluminum.wt = al_percent
   # NOTE: CEA doesn't like it when a material has 0%, so at 0% the material is not entered into the .inp file
   ap.wt = (100-12-al_percent)
   problem.set_absolute_o_f() # change our o/f to reflect situation
   collector.add_data(problem.run())
-endTime = time()
-print("Completed in {}s! {} CEA calls per second".format(endTime-startTime, 250/(endTime-startTime)))
+end_time = time()
+print("Completed in {}s! {} CEA calls per second".format(end_time-start_time, 250/(end_time-start_time)))
 
 # Adapted from https://matplotlib.org/stable/gallery/subplots_axes_and_figures/two_scales.html
 fig, ax1 = plt.subplots()
@@ -159,3 +159,45 @@ ax2.plot(percent_aluminum, collector.ivac, color=color)
 ax2.tick_params(axis='y', labelcolor=color)
 fig.tight_layout()  # otherwise the right y-label is slightly clipped
 plt.show()
+
+# Example 7: Trying the same thing threaded
+print("Running super-fast multi-threaded case")
+from concurrent.futures import ThreadPoolExecutor
+
+collector = DataCollector("c_t", "ivac") # Show chamber temperature and isp dependence on % aluminum
+
+def inner_function(al_percent): # This function is just the inside of the previous loop
+  # It is wise to re-define our materials and function for each call to this function, so that different runs do not over-write each other's material amounts
+  aluminum = Fuel("AL(cr)", wt=12) # (cr) for "crystalline" or condensed phase
+  htpb = Fuel("HTPB", wt=14) # This was added at Purdue so doesn't include (cr) in the name
+  ap = Oxidizer("NH4CLO4(I)", wt=74) # ammonium perchlorate (form I, specified at room temperature)
+  aluminum.wt = al_percent
+  # NOTE: CEA doesn't like it when a material has 0%, so at 0% the material is not entered into the .inp file
+  ap.wt = (100-12-al_percent)
+  # We also need to re-define our problem in each function so that we do not accidentally over-write problem components in other threads
+  problem = RocketProblem(materials=[aluminum, htpb, ap])
+  problem.set_absolute_o_f() # change our o/f to reflect situation
+  collector.add_data(problem.run(), al_percent) # Because the threaded cases may run out of order, we add our independent variable to our data collector, so we can sort later
+
+start_time = time()
+with ThreadPoolExecutor() as thread_pool:
+  thread_pool.map(inner_function, percent_aluminum)
+collector.sort() # Sort our data collector by our independent variable
+end_time = time()
+print("Completed in {}s! {} CEA calls per second".format(end_time-start_time, 250/(end_time-start_time)))
+
+
+# # Adapted from https://matplotlib.org/stable/gallery/subplots_axes_and_figures/two_scales.html
+# fig, ax1 = plt.subplots()
+# color = 'tab:red'
+# ax1.set_xlabel('Percentage Aluminum (%)')
+# ax1.set_ylabel('Temperature', color=color)
+# ax1.plot(percent_aluminum, collector.c_t, color=color)
+# ax1.tick_params(axis='y', labelcolor=color)
+# ax2 = ax1.twinx()
+# color = 'tab:blue'
+# ax2.set_ylabel('Vacuum Isp (s)', color=color)
+# ax2.plot(percent_aluminum, collector.ivac, color=color)
+# ax2.tick_params(axis='y', labelcolor=color)
+# fig.tight_layout()  # otherwise the right y-label is slightly clipped
+# plt.show()

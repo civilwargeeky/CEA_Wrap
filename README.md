@@ -38,9 +38,9 @@ Or you can run a short demo by doing "python -m CEA_Wrap" on the command line!
 
 # Documentation
 
-### Material(name: str, temp: float = 298.15, wt: float = None, mols: float = None, chemical_composition: str = None, hf: float = None) -> Material
+### Material(name: str, temp: float = 298.15, wt: float|None = None, mols: float|None = None, chemical_representation: ChemicalRepresentation|None = None, hf: float|None = None) -> Material
 
-Creates a new material object with specified parameters. All parameters are also members of the class that have both getters and setters
+Creates a new material object with specified parameters. All parameters are also members of the class that have both getters and setters. You should specify either `wt` or `mols` but cannot specify both. If neither is defined, `wt` is set to `1`.
 
 #### Parameters
 
@@ -52,16 +52,12 @@ Creates a new material object with specified parameters. All parameters are also
   - If you try to specify a temperature which is not supported for this material in the thermo_spg.inp file, a ValueError will be raised. To prevent this check, set `Material.check_against_thermo_inp = False`.
 
 - **`wt`** (`float`, _optional_, default=`None`): A weight-based percentage for the element.
-  - Weight percentages do not need to add up to 100 and are calculated on the ratio with other Fuels/Oxidizers.
+  - Weight percentages do not need to add up to 100 and are calculated with ratios according to other Fuels/Oxidizers in a given problem.
 
 - **`mols`** (`float`, _optional_, default=`None`): A mol-based percentage for the element. Can be used as in `Oxidizer("O2", mols=1)` and `Oxidizer("N2", mols=3.76)` for air. (Note: CEA has "Air" as a separate reactant)
-  - **NOTE:** `wt` and `mols` cannot be specified together. If neither is defined, the `Material` gets a `wt` of 1.
 
-- **`chemical_composition`** (`str`, _optional_, default=`None`): Chemical composition such as "LI 1 B 1 H 4" for LiBH4.
+- **`chemical_representation`** (`ChemicalRepresentation`, _optional_, default=`None`): Chemical composition such as "LI 1 B 1 H 4" for LiBH4.
   - If defined, it will not use CEA default values. **NOTE: Not rigorously tested**
-
-- **`hf`** (`float`, _optional_, default=`None`): Enthalpy of formation in kJ/mol. Must be specified if `chemical_composition` is specified.
-  - **NOTE: Not rigorously tested**
 
 #### Returns
 
@@ -76,7 +72,7 @@ material = Material("CH4")
 # Example with optional parameters
 material = Material(name="AL(cr)", temp=300, wt=50)
 
-# Example showing different use cases or edge cases
+# Example with specifying chemical_composition
 material = Material(chemical_composition="LI 1 B 1 H 4", hf=-20)
 ```
 
@@ -133,10 +129,8 @@ Creates a new Problem object with specified parameters.
 
 ### Parameters
 
-- **`**kwargs`** (`dict`, *optional*): Keyword arguments for initializing the problem.
+- **`**kwargs`** : Keyword arguments for initializing the problem.
   - All parameters must be specified by keyword, e.g., `problem = RocketProblem(pressure=500, massf=True)`.
-  - Example: What kind of input is expected?
-    - Any validation or preprocessing requirements?
 
 - **`pressure`** (`float`, *optional*, default=1000): Initial problem pressure.
   - This parameter sets the initial pressure for the problem.
@@ -144,19 +138,17 @@ Creates a new Problem object with specified parameters.
 - **`materials`** (`list`, *optional*, default=None): List of `Material` objects, order doesn't matter, of Oxidizer and Fuel objects e.g. materials=[material1, material2, ...].
   - Materials can also be specified when you run a problem like `problem.run_cea(material1, material2, ...)`.
   - Materials MUST all have wt specified or all have mols specified; cannot have mixtures.
+  - You can modify a Material object, for instance changing it's `wt`, and re-run the problem. You do not need to set the materials again after changing weights.
 
 - **`massf`** (`bool`, *optional*, default=False): CEA usually outputs product species in mole fractions. If massf is True, mass fractions are specified.
   - This parameter determines whether the output should be in mole fractions or mass fractions.
-
-- **`filename`** (`str`, *optional*, default="my_output"): The filename we save our .inp files to and CEA saves our .out and .plt to.
-  - DO NOT INCLUDE ".inp" IN YOUR FILENAMES.
 
 - **`pressure_units`** (`str`, *optional*, default="psi"): The units that your input pressure is in. Possible values are "bar", "atm", "psi", or "mmh".
   - This parameter sets the units for the input pressure.
 
 - **`inserts`** (`list or str`, *optional*, default=None): A list of CEA names for species which should be forced into the product considerations. Should be specified as either a space-separated string of names, a list of string names, or a list of `Material` objects.
   - Note: If you try to specify a chemical which is not in the thermo_spg.inp file, a ValueError will be raised. To prevent this check, set `Problem.check_against_thermo_inp = False`.
-  - Tip: If you are doing calculations with Aluminum, I recommend using inserts=["AL2O3(L)", "AL2O3(a)"].
+  - Tip: If you are doing calculations with Aluminum, I recommend using inserts=["AL2O3(L)", "AL2O3(a)"]. This may help errors with convergence at lower temperatures/pressures. You can also do similar things for other condensed phase species.
 
 - **`omits`** (`list or str`, *optional*, default=None): A list of CEA names for species which should be specifically ignored in the product considerations. Specified similar to inserts.
   - This parameter allows you to exclude certain species from the product considerations.
@@ -175,6 +167,7 @@ Creates a new Problem object with specified parameters.
 ### Returns
 
 - `Problem`: An instance of the Problem class initialized with the provided parameters.
+  - Note: The base `Problem` class cannot be run by itself, you must run a sub-class such as HPProblem or RocketProblem
 
 ### Examples
 
@@ -183,13 +176,12 @@ Creates a new Problem object with specified parameters.
 problem = Problem(pressure=1000, materials=[material1, material2], massf=True)
 
 # Example with optional parameters
-problem = Problem(filename="custom_output", pressure_units="bar")
+problem = Problem(inserts=["AL2O3(L)", "AL2O3(a)"], pressure_units="bar")
 ```
 
 ### Notes
 
 - All parameters must be specified by keyword.
-- Performance considerations: Initializing a problem object may involve significant computation depending on the complexity of the input parameters.
 
 ## `Problem.run([*materials]) -> Output`
 
@@ -202,7 +194,9 @@ Runs the CEA problem and returns an "Output" object similar to a dictionary.
 
 ### Returns
 
-- `Output`: An "Output" object containing the results of the CEA problem, similar to a dictionary.
+- `Output`: An "Output" object containing the results of the CEA problem, similar to a dictionary. Elements of the Output may be accessed with ["braces"] or .dot_notation
+  - Example: `problem.run()["T_c"]` or `problem.run().T_c`
+  - As of Version 2.0, all Problem subclasses return a problem-specific dataclass type, exposing all the parameters available for autocomplete in editors like VS Code or PyCharm.
 
 ### Examples
 
@@ -230,7 +224,8 @@ Calculates and sets the correct o/f ratio based on the existing material list.
 
 ```python
 # Basic usage example
-problem.set_absolute_o_f()
+problem = Problem(materials=[Fuel("A", wt=30), Oxidizer("B", wt=60)], o_f=1)
+problem.set_absolute_o_f() # Sets o_f to 60/30
 ```
 
 ## `Problem.set_pressure(pressure) -> None`
@@ -273,7 +268,7 @@ problem.set_materials([material1, material2])
 
 ## `Problem.set_massf(massf) -> None`
 
-Sets the mass fraction flag for the problem.
+Sets the mass fraction flag for the problem. If massf is True, CEA returns mass-fractions for exhaust product abundances, otherwise it returns mol-fractions (the default)
 
 ### Parameters
 
@@ -330,33 +325,13 @@ Sets the omits for the problem.
 problem.set_omits(["CO2", "H2O"])
 ```
 
-## `Problem.set_filename(filename) -> None`
-
-Sets the filename for the problem.
-
-### Parameters
-
-- **`filename`** (`str`): The new filename to set.
-  - DO NOT INCLUDE ".inp" IN YOUR FILENAMES.
-
-### Returns
-
-- `None`: This method does not return any value; it modifies the object in place.
-
-### Examples
-
-```python
-# Basic usage example
-problem.set_filename("custom_output")
-```
-
 ## `Problem.set_pressure_units(units) -> None`
 
 Sets the pressure units for the problem.
 
 ### Parameters
 
-- **`units`** (`str`): The new pressure units to set. Possible values are "bar", "atm", "psi", or "mmh".
+- **`units`** (`str`): The new pressure units to set. Possible values are "bar", "atm" (atmospheres), "psi" (pounds per square inch), or "mmh" (millimeters mercury).
 
 ### Returns
 
@@ -429,7 +404,7 @@ problem.set_o_f(0.5)
 
 ## `Problem.set_phi(phi) -> None`
 
-Sets the equivalence ratio for the problem.
+Sets the equivalence ratio for the problem, using the engineering definition of equivalence ratio.
 
 ### Parameters
 
@@ -443,12 +418,12 @@ Sets the equivalence ratio for the problem.
 
 ```python
 # Basic usage example
-problem.set_phi(1.2)
+problem.set_phi(1.2) # Fuel-rich
 ```
 
 ## `Problem.set_r_eq(r_eq) -> None`
 
-Sets the chemical equivalence ratio for the problem.
+Sets the 'chemical equivalence ratio' for the problem.
 
 ### Parameters
 
@@ -465,15 +440,21 @@ Sets the chemical equivalence ratio for the problem.
 problem.set_r_eq(1.5)
 ```
 
+## HP (Specified Enthalpy and Pressure) Problem Constructor Additional Parameters:
+
+Usage: `HPProblem(**kwargs)`.
+
+This problem type has no additional parameters beyond those in `Problem`. In an HP problem, the enthalpy of the system is calculated based on the temperatures of the individual reactant materials specified.
+
 ## TP (Specified Temperature and Pressure) Problem Constructor Additional Parameters:
 
-Very similar to an HP problem, but temperature is specified per-problem and material temperatures are ignored.
+Very similar to an HP problem, but temperature is specified per-problem and thus material temperatures are ignored.
 
 ### Parameters
 
 - **`temperature`** (`float`, *optional*, default=298): The problem temperature.
   - Can be specified later with `.set_temperature`.
-- **`temperature_units`** (`str`, *optional*, default='k'): The units for the temperature. Options are 'k', 'c', 'r', 'f'.
+- **`temperature_units`** (`str`, *optional*, default='k'): The units for the temperature. Options are 'k' (Kelvin), 'c' (Celsius/Centigrade), 'r' (Rankine), 'f' (Fahrenheit).
   - Can be specified later with `.set_temperature_units`.
 
 ### Returns
@@ -482,7 +463,9 @@ Very similar to an HP problem, but temperature is specified per-problem and mate
 
 ## Detonation Problem Constructor Additional Parameters:
 
-**WARNING**: As far as I am aware, CEA is incapable of performing detonation calculations with condensed phase (solid) reactants. It will only handle gaseous reactants.
+Usage: `DetonationProblem(**kwargs)`. This problem type has no additional parameters beyond those in `Problem`
+
+**NOTICE**: As far as I am aware, CEA is incapable of performing detonation calculations with condensed phase (solid) reactants. It will only handle gaseous reactants.
 
 ### Returns
 
@@ -490,7 +473,7 @@ Very similar to an HP problem, but temperature is specified per-problem and mate
 
 ## Rocket Problem Constructor Additional Parameters:
 
-For `RocketProblem(*, **kwargs)`
+For `RocketProblem(*, **kwargs)`. The `RocketProblem` has a variety of options related to how the chamber and nozzle of the rocket motor are treated.
 
 ### Parameters
 
@@ -511,7 +494,7 @@ For `RocketProblem(*, **kwargs)`
   - Cannot be specified at the same time as `fac_ma`.
 - **`analysis_type`** (`str`, *optional*, default="equilibrium"): Whether to use equilibrium reactions or frozen. For using frozen specify "frozen" or "frozen nfz=1" for frozen at the chamber or "frozen nfz=2" for frozen at the throat.
 - **`nfz`** (`int`, *optional*): If `analysis_type` is "frozen", this will set the frozen location to the given point. 1 for chamber, 2 for throat.
-- **`custom_nfz`** (`float`, *optional*): If `analysis_type` is "frozen", this is the position within the nozzle that composition will be frozen at. Uses the same unit as ae/at or pip.
+- **`custom_nfz`** (`float`, *optional*): If `analysis_type` is "frozen", this is the position within the nozzle that composition will be frozen at. Uses the same unit as ae/at or pip (whichever is set).
 
 ### Returns
 
@@ -523,7 +506,7 @@ Provided with this library is an interface to the thermo_spg.inp file provided w
 
 You can access materials as if `ThermoInterface` is a dictionary using materials' CEA Names. E.G. `ThermoInterface["CH4"]`. This object support checking for inclusion and iterations, such as `"CH4" in ThermoInterface` and `for name in ThermoInterface`. It supports dictionary methods such as `.keys()`, `.values()` and `.items()`.
 
-The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, which is an `Output` object (dictionary that can be accessed with .dot notation) with the following keys:
+The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, which is an `Output` object (dictionary that can also be accessed with .dot notation) with the following keys:
 
 - `name` - Name of the material
 - `reference` - Reference, if given. Otherwise ""
@@ -536,47 +519,44 @@ The value returned by `ThermoInterface` accesses is a `ThermoMaterial object`, w
 
 ### Available Methods
 
-- `ThermoInterface.get_close_matches(name, [n])` - Gets close matches to a given material name. For example "Al(cr)" returns 'AL(cr)', 'ALN(cr)', 'Ag(cr)', 'W(cr)'. n influences the number of results returned, and is the maximum number of results returned.
+- `ThermoInterface.get_close_matches(name, [n])` - Gets close matches to a given material name. For example "Al(cr)" returns 'AL(cr)', 'ALN(cr)', 'Ag(cr)', 'W(cr)'. n is the maximum number of results returned (though fewer may be returned).
 - `ThermoMaterial.defined_at(temp)` - Returns True if the material is specified at the given temperature, False otherwise. Materials specified at one temperature are actually allowed at that temperature +- 10K.
 
 ## Utilities
 
-  ```open_thermo_lib()```
-  Opens the default thermo library input file using the user's default .inp file viewer (should prompt if none)
-  
-  ```open_pdfs()```
-  Opens the attached NASA pdfs using the user's default pdf viewer
-  
-  ```print_assets_directory()```
-  Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
-  
-  ```print_simple_thermo_lib_line(name, comment, atoms, isCond, molWt, hf, temperature=298.15)```
-  Returns and prints a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
-  
-- `name`: 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for agglomerate, (cr) for crystalline (solid), or (L) for liquid phase.
-  
-- `comment`: 56 char max, Human-readable name and additional information
-  
-- `atoms`: 5 atom max, A dictionary of "atomic symbol": number of atoms in molecule.
-  
-    Example: Water, "H2O", would be {"H": 2, "O": 1}
+- ```open_thermo_lib()```: Opens the default thermo library input file using the user's default .inp file viewer (should prompt if none)
 
-    Complex Example: Lead Acetate, "Pb(C2H3O2)2", would be {"Pb": 1, "C": 4, "H": 6, "O": 4}. Note that the C, H, and O are doubled because they are the *sum* of atoms in the molecule
+- ```open_pdfs()```: Opens the attached NASA pdfs using the user's default pdf viewer
 
-    Note: "E" is a special value which represents an electron for ionic compounds. You can have negative amounts of "E" to indicate positively charged atoms
+- ```print_assets_directory()```: Prints to console the current location of the directory where CEA_Wrap assets are located. Also returns this value
 
-- `isCond`: "Is Condensed?" True if the material is a solid or liquid, False if it is a gas.
+- ```get_simple_thermo_lib_line(name, comment, atoms, is_condensed, mol_wt, hf, temperature=298.15)```: Returns and a string which can be inserted to represent a molecule in the Thermo Lib. Any entries which are longer than the allotted space results in an error
   
-- `molWt`: Molecular weight of molecule in g/mol or kg/kmol
-  
-- `hf`: Assigned Enthalpy of material at temperature specified. J/mol. If temperature=298.15K, this is the Heat of Formation.
-  
-- `temperature`: Temperature that the molecule is specified at, Kelvin
-  
-  ```reload_thermo_lib()```
-  Moves the thermo and transport libs from your assets directory (if they have changed) and reloads ThermoInterface from the thermo_spg.inp in your assets directory
-  Use this if you have recompiled your thermo lib but do not want to restart python.
-  
+  - `name` (`str`): 24 chars max, Species name, such as CO or Fe2O3. These are assumed to be in a gas phase unless appended with (a) for agglomerate, (cr) for crystalline (solid), or (L) for liquid phase.
+  - `comment` (`str`): 56 char max, Human-readable name and additional information
+  - `atoms` (`dict[str, int]`): 5 atom max, A dictionary of "atomic symbol": number of atoms in molecule.
+
+      Example: Water, "H2O", would be {"H": 2, "O": 1}
+
+      Complex Example: Lead Acetate, "Pb(C2H3O2)2", would be {"Pb": 1, "C": 4, "H": 6, "O": 4}. Note that the C, H, and O are doubled because they are the *sum* of atoms in the molecule
+
+      Note: "E" is a special value which represents an electron for ionic compounds. You can have negative amounts of "E" to indicate positively charged atoms
+
+  - `is_condensed` (`bool`): True if the material is a solid/liquid, False if it is a gas.
+    
+  - `mol_wt` (`float`): Molecular weight of molecule in g/mol or kg/kmol
+    
+  - `hf` (`float`): Assigned Enthalpy of material at temperature specified. J/mol. If temperature=298.15K, this is the Heat of Formation.
+    
+  - `temperature` (`float`, *optional*, default=298.150): Temperature that the molecule is specified at, in Kelvin
+
+- ```print_simple_thermo_lib_line(*args, **kwargs)```
+
+  - A simple alias for `print(get_simple_thermo_lib_line(*args, **kwargs))`
+
+- ```reload_thermo_lib()```: Moves the thermo and transport libs from your assets directory (if they have changed) and reloads ThermoInterface from the thermo_spg.inp in your assets directory
+Use this if you have recompiled your thermo lib but do not want to restart python.
+
   Note: This is actually defined in CEA.py, not utils.py
   
 ### DataCollector

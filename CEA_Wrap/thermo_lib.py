@@ -187,7 +187,7 @@ class ThermoInterface:
     return len(self.thermo_materials)
 
 
-def get_simple_thermo_lib_line(name: str, comment: str, atoms: dict[str: int], is_condensed: bool, 
+def get_simple_thermo_lib_line(name: str, comment: str, atoms: dict[str, int], is_condensed: bool, 
                                  mol_wt: float, hf: float, temperature: float=298.150) -> str:
   """
   Returns and prints a string which can be inserted to represent a molecule in the ThermoLib

@@ -3,7 +3,7 @@ import os
 import re
 import threading
 from dataclasses import dataclass, field
-from typing import Callable, Generic, Never, Sequence, TypeVar
+from typing import Callable, Generic, Never, Sequence, TypeVar, get_args, Literal
 
 from .utils_low import getenv_t_f
 from .utils import DictDataclass, Output
@@ -17,9 +17,12 @@ from .thermo_lib import ThermoInterface as ThermoInterface_Class
 
 log = logging.getLogger(__name__)
 
-OPTIONS_TEMP_UNITS = ["k", "r", "c", "f"] # options for temperature units
-OPTIONS_PRES_UNITS = ["bar", "atm", "psi", "mmh"] # options for pressure units
-OPTIONS_ENTHALPY_UNITS = ["c", "kc", "j", "kj"] # options for enthalpy units. 'c' and 'kc' are "calorie" and "kilo-calorie (Calorie)"
+TempUnitType = Literal["k", "r", "c", "f"] # options for temperature units
+PresUnitType = Literal["bar", "atm", "psi", "mmh"] # options for pressure units
+EnthalpyUnitType = Literal["c", "kc", "j", "kj"] # options for enthalpy units. 'c' and 'kc' are "calorie" and "kilo-calorie (Calorie)"
+OPTIONS_TEMP_UNITS = get_args(TempUnitType)
+OPTIONS_PRES_UNITS = get_args(PresUnitType)
+OPTIONS_ENTHALPY_UNITS = get_args(EnthalpyUnitType)
 
 # Instantiate default objects used for all problems (using files defined within .utils.py)
 # Because CEA locks the thermo.lib and trans.lib files while running, only one instance of the executable can access those files at a time
@@ -31,12 +34,19 @@ CEA_thread_dict = {
 }
 ThermoInterface = ThermoInterface_Class()
 
-
 @dataclass
 class ChemicalRepresentation:
+  """
+  A ChemicalRepresentation represents a custom material added in the .inp file, as opposed to using an existing material in thermo.lib
+
+  :param chemical_representation: chemical composition in space-separated pairs of (element, n_atoms), such as "LI 1 B 1 H 4" for LiBH4.
+  :param hf: Enthalpy of formation, in `hf_unit`/mol.
+  :param hf_unit: Unit for enthalpy of formation. defaults to "kj"
+  :param is_internal_energy: If True, sets an internal energy (`u`), rather than enthalpy (`h`). defaults to False
+  """
   chemical_composition: str
   hf: float
-  hf_unit: str = "j"
+  hf_unit: EnthalpyUnitType = "kj"
   is_internal_energy:bool = False
   
   def __post_init__(self):
@@ -46,6 +56,7 @@ class ChemicalRepresentation:
   def get_CEA_string(self):
     return f"{self.chemical_composition} {'u' if self.is_internal_energy else 'h'},{self.hf_unit}/mol={self.hf:.5f}"
 
+# Function to let people know that something is deprecated
 def deprecated_setter(fcn: Callable):
   def subfcn(*args, **kwargs):
     import warnings
@@ -55,7 +66,6 @@ def deprecated_setter(fcn: Callable):
   return subfcn
 
 
-
 class Material:
   output_type = None # MUST BE SPECIFIED IN SUBCLASSES. The string we put before the material when writing .inp files
   is_fuel = None # MUST BE SPECIFIED IN SUBCLASSES. Assume all materials are either fuels or oxidizers. Must be overridden
@@ -63,20 +73,18 @@ class Material:
   #   also, will add .ref member to all objects for the thermo input reference
   check_against_thermo_inp = True
   
-  def __init__(self, name, temp:float=298.15, wt:float|None=None, mols:float|None=None, chemical_composition:ChemicalRepresentation|None=None,
+  def __init__(self, name, temp:float=298.15, wt:float|None=None, mols:float|None=None, chemical_representation:ChemicalRepresentation|None=None,
                wt_percent:Never=None):
     """
     A material to put in the problem's .inp file. Can be specified inline or come from the thermo.lib
     If neither wt nor mols is specified, wt is 100
-    If one of chemical_composition or hf is given, the other must be as well
 
     :param name: Name to input into CEA
     :param temp: temperature in K, defaults to 298.15K
     :param wt: Relative weight percent of this Material, defaults to None.
     :param mols: Mole ratio for this material, defaults to None
-    :param chemical_composition: chemical composition such as "LI 1 B 1 H 4" for LiBH4. If defined, will not use CEA default values, defaults to None
-    :param hf: Enthalpy of formation, in kJ/`hf_type`. Must be defined if chemical_composition is, defaults to None
-    :param hf_type: _description_, defaults to "mol"
+    :param chemical_representation: chemical composition, including name and hf. Such as `ChemicalRepresentation("LI 1 B 1 H 4", -200)` for LiBH4. 
+        If you define a representation for a chemical already in the thermo library, this will ignore thermo library properties. Parameter defaults to None
     :raises ValueError: _description_
     :raises TypeError: _description_
     """
@@ -93,10 +101,10 @@ class Material:
     self._temp = temp
     self._wt = wt
     self._mols = mols
-    self._chemical_composition = chemical_composition
+    self._chemical_representation = chemical_representation
     
     self.ref = None
-    if self.check_against_thermo_inp and not chemical_composition: # If they don't override thermo.lib data and we check for missing elements
+    if self.check_against_thermo_inp and not chemical_representation: # If they don't override thermo.lib data and we check for missing elements
       if name not in ThermoInterface:
         close_matches = ThermoInterface.get_close_matches(name)
         raise ValueError(f"specified element '{name}' does not exist in package thermo library\n" +
@@ -149,8 +157,13 @@ class Material:
     self._temp=temp
   
   @property
+  @deprecated_setter
   def chemical_composition(self):
-    return self._chemical_composition # Cannot be set outside of constructor
+    return self._chemical_representation # Cannot be set outside of constructor
+
+  @property
+  def chemical_representation(self):
+    return self._chemical_representation # Cannot be set outside of constructor
     
   def is_mols(self) -> bool: # Helper function for a material being in wt or mols
     return self._mols is not None
@@ -169,8 +182,8 @@ class Material:
 
     if ratio > 0:
       string = self.get_CEA_name_wt(name, ratio)
-      if self._chemical_composition:
-        string += self._chemical_composition.get_CEA_string()
+      if self._chemical_representation:
+        string += self._chemical_representation.get_CEA_string()
       return string + "\n"
     elif ratio == 0: # This allows us to not include materials that are set to 0
       return ""
@@ -679,7 +692,7 @@ class TPMaterial(Material):
       self.parent = p
       self.output_type = self.parent.output_type
       self.is_fuel = self.parent.is_fuel
-      super().__init__(p._name, p._temp, p._wt, p._mols, p._chemical_composition)
+      super().__init__(p._name, p._temp, p._wt, p._mols, p._chemical_representation)
     except AttributeError:
       raise TypeError("TPMaterial must be derived from Material, but a '{}' object was supplied".format(type(parent)))
 

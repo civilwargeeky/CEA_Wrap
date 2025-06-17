@@ -21,19 +21,39 @@ PRESSURE = 1000 # psi
 INITIAL_AL = 1 # % Aluminum to guess
 EPSILON = 0.2 # In weight %: Step size used in the numerical approximation of the jacobian
 
-### Problem 1: We want to find a propellant that will *maximize* Isp. We will modify the amount of aluminum, keep the HTPB constant, and change the AP to match 100
-
-# For all the examples in this problem we'll use Aluminized AP/HTPB as the reactants
+# For all the examples in this script we'll use Aluminized AP/HTPB as the reactants
 aluminum = Fuel("AL(cr)") # (cr) for "crystalline" or condensed phase
 ap = Oxidizer("NH4CLO4(I)") # ammonium perchlorate (form I, specified at room temperature)
 htpb = Fuel("HTPB", wt=CONST_WT_HTPB) # This was added at Purdue so doesn't include (cr) in the name
-m_list = [aluminum, htpb, ap] # for convenience so I can pass it into all problems
 
+problem = RocketProblem(pressure=PRESSURE, materials=[aluminum, htpb, ap], sup=EXIT_RATIO,
+                        phi=1) # We set an arbitrary fuel-oxidizer ratio, as we will need to change it later
+
+### Problem Statement: We want to find a propellant that will *maximize* Isp in an Aluminum + AP + HTPB propellant.
+### Solution 1: An example of a simple "optimization" that may get you through many problems. 
+
+aluminum_amounts = np.arange(0, 30, step=0.5) # We suspect that the optimum should be between 0 and 30% aluminum
+isp_outs = np.zeros_like(aluminum_amounts) # Set up our array of isp values
+
+for i, wt_aluminum in enumerate(aluminum_amounts):
+  aluminum.set_wt_percent(wt_aluminum) # Update our material
+  ap.set_wt_percent(100 - CONST_WT_HTPB - wt_aluminum) # Update our AP to make our propellant sum to 100% propellant
+  problem.set_absolute_o_f() # Set the correct o_f ratio
+  results = problem.run() # Re-run the problem
+
+  isp_outs[i] = results.isp
+
+ideal_index = np.argmax(isp_outs) # index of maximum Isp
+ideal_isp = isp_outs[ideal_index]
+ideal_al = aluminum_amounts[ideal_index]
+print("-- Case: Simple Enumeration of Options -- ")
+print(f"Optimal Amount of Aluminum: {ideal_al}")
+print(f"Ideal Isp at that weight:   {ideal_isp}")
+
+
+### Solution 2: We will modify the amount of aluminum, keep the HTPB constant, and change the AP to match 100
 initial_values = [INITIAL_AL] # Starting wt percent guess of aluminum
 bounds = [(0, 100-CONST_WT_HTPB)] # Set bounds for wt percent of aluminum. More than (100-74) would make negative AP. Note that it is a `list` of `tuples`
-
-problem = RocketProblem(pressure=PRESSURE, materials=m_list, sup=EXIT_RATIO,
-                        phi=1) # We set an arbitrary fuel-oxidizer ratio, as we will need to change it later
 
 # Define our optimization function. This will get a `tuple` of aluminum weight percent set by the optimizer. The tuple is of size 1.
 def to_optimize(x_tuple):
@@ -62,11 +82,12 @@ optimization_result = minimize( # Documentation: https://docs.scipy.org/doc/scip
 
 ideal_al = optimization_result.x[0] # The `.x` is a list of variables in the optimal solution. We only have [0]: Wt Aluminum
 ideal_isp = -optimization_result.fun # Value of the optimization function at the optimal solution. Invert it to get Isp instead of score
+print("-- Case: 1D Optimization with Bounds -- ")
 print(f"Optimal Amount of Aluminum: {ideal_al}")
 print(f"Ideal Isp at that weight:   {ideal_isp}")
 
 
-### Problem 2: Multi-variate optimization! Let's optimize every part of our propellant to see what works the best
+### Solution 3: Multi-variate optimization! Let's optimize every part of our propellant to see what works the best
 # We will optimize both the Aluminum and HTPB, and calculate the AP from that
 
 initial_values = [INITIAL_AL, CONST_WT_HTPB] # Starting wt percent guess of aluminum and HTPB
@@ -119,7 +140,8 @@ optimization_result = minimize( # Documentation: https://docs.scipy.org/doc/scip
 ideal_al = optimization_result.x[0] # The `.x` is a list of variables in the optimal solution. [0]: Wt Aluminum
 ideal_htpb = optimization_result.x[1] # [1] is Wt HTPB
 ideal_isp = -optimization_result.fun # Value of the optimization function at the optimal solution. Invert it to get Isp instead of score
-print(f"Optimal Amount of AP:       {100-ideal_al-ideal_htpb}")
+print("-- Case: 2D Optimization with Bounds and Constraints -- ")
 print(f"Optimal Amount of Aluminum: {ideal_al}")
 print(f"Optimal Amount of HTPB:     {ideal_htpb}")
+print(f"Optimal Amount of AP:       {100-ideal_al-ideal_htpb}")
 print(f"Ideal Isp at that weight:   {ideal_isp}")

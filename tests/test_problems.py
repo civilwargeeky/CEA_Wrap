@@ -324,18 +324,23 @@ class TestProblemAgainstReferences(TestProblemConsistency):
         actual_keys = set(actual.keys()) if isinstance(actual, dict) else set()
         ref_keys = set(reference.keys()) if isinstance(reference, dict) else set()
         
-        if actual_keys != ref_keys:
-            missing_in_actual = ref_keys - actual_keys
-            missing_in_ref = actual_keys - ref_keys
+        # if actual_keys != ref_keys:
+        #     missing_in_actual = ref_keys - actual_keys
+        #     missing_in_ref = actual_keys - ref_keys
+        #     msg = f"Key mismatch at {path}: "
+        #     if missing_in_actual:
+        #         msg += f"missing in actual: {missing_in_actual} "
+        #     if missing_in_ref:
+        #         msg += f"missing in reference: {missing_in_ref}"
+        #     self.fail(msg)
+        
+        if (missing_in_actual := ref_keys - actual_keys):
             msg = f"Key mismatch at {path}: "
-            if missing_in_actual:
-                msg += f"missing in actual: {missing_in_actual} "
-            if missing_in_ref:
-                msg += f"missing in reference: {missing_in_ref}"
+            msg += f"missing in actual: {missing_in_actual} "
             self.fail(msg)
         
         # Compare values for each key
-        for key in actual_keys:
+        for key in ref_keys:
             current_path = f"{path}.{key}" if path else key
             actual_val = actual[key]
             ref_val = reference[key]

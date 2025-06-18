@@ -3,7 +3,8 @@ from setuptools.command.sdist import sdist
 from setuptools.command.install import install
 import platform, subprocess, os
 
-VERSION = '2.0.0'
+with open(os.path.join("CEA_Wrap", "version.txt"), "r") as f:
+    VERSION = f.read().strip()
 
 instructions = """
 (Courtesy of Morgan Reusch)

@@ -13,4 +13,4 @@ CEA_Wrap.egg-info/
 *.f
 *.inc
 !thermo_lib_recompile.bat
-/.vscode/settings.json
+/.vscode/*

@@ -1,10 +1,13 @@
 include CEA_Wrap/version.txt
-include CEA_Wrap/assets/FCEA2.exe
 include CEA_Wrap/assets/thermo.lib
 include CEA_Wrap/assets/trans.lib
 include CEA_Wrap/assets/thermo_spg.inp
 include CEA_Wrap/assets/thermo_spg.out
+include CEA_Wrap/assets/FCEA2.exe
 include CEA_Wrap/assets/cea2.f
 include CEA_Wrap/assets/cea.inc
+include CEA_Wrap/assets/Dan_CEA2.exe
+include CEA_Wrap/assets/dan_cea2.f
+include CEA_Wrap/assets/dan_cea2.inc
 include CEA_Wrap/assets/CEA_Mathematical_Analysis.pdf
 include CEA_Wrap/assets/CEA_Users_Manual_and_Program_Description.pdf

@@ -284,6 +284,136 @@ class TestProblemParameterVariation(TestProblemConsistency):
         self._assert_output_consistency(result_high, result_high_2)
 
 
+class TestProblemAgainstReferences(TestProblemConsistency):
+    """Test that Problem.run() produces outputs consistent with reference JSON files."""
+    
+    def setUp(self):
+        """Set up common materials and load reference directory."""
+        super().setUp()
+        from pathlib import Path
+        self.ref_dir = Path("test_reference_outputs")
+        
+        # Check if reference directory exists
+        if not self.ref_dir.exists():
+            self.skipTest("Reference outputs directory not found. Run create_dry_run_outputs() first.")
+    
+    def _load_reference(self, test_name):
+        """Load reference JSON data for a test case."""
+        import json
+        json_file = self.ref_dir / f"{test_name}.json"
+        
+        if not json_file.exists():
+            self.skipTest(f"Reference file {json_file} not found.")
+        
+        with open(json_file, "r") as f:
+            return json.load(f)
+    
+    def _compare_with_reference(self, actual_output, reference_data, tolerance=1e-10):
+        """Compare actual output with reference data using nested dictionary comparison."""
+        # Convert actual output to dictionary
+        actual_dict = _convert_to_json_serializable(actual_output)
+        
+        # Compare the dictionaries
+        self._compare_nested_dicts(actual_dict, reference_data, tolerance)
+    
+    def _compare_nested_dicts(self, actual, reference, tolerance=1e-10, path=""):
+        """Recursively compare nested dictionaries with tolerance."""
+        # Check that both have the same keys
+        actual_keys = set(actual.keys()) if isinstance(actual, dict) else set()
+        ref_keys = set(reference.keys()) if isinstance(reference, dict) else set()
+        
+        if actual_keys != ref_keys:
+            missing_in_actual = ref_keys - actual_keys
+            missing_in_ref = actual_keys - ref_keys
+            msg = f"Key mismatch at {path}: "
+            if missing_in_actual:
+                msg += f"missing in actual: {missing_in_actual} "
+            if missing_in_ref:
+                msg += f"missing in reference: {missing_in_ref}"
+            self.fail(msg)
+        
+        # Compare values for each key
+        for key in actual_keys:
+            current_path = f"{path}.{key}" if path else key
+            actual_val = actual[key]
+            ref_val = reference[key]
+            
+            if isinstance(actual_val, dict) and isinstance(ref_val, dict):
+                # Recursively compare nested dictionaries
+                self._compare_nested_dicts(actual_val, ref_val, tolerance, current_path)
+            elif isinstance(actual_val, (int, float)) and isinstance(ref_val, (int, float)):
+                # Compare numeric values with tolerance
+                self.assertAlmostEqual(float(actual_val), float(ref_val), delta=tolerance,
+                                     msg=f"Numeric values differ at {current_path}: {actual_val} vs {ref_val}")
+            else:
+                # Compare non-numeric values exactly
+                self.assertEqual(actual_val, ref_val,
+                               msg=f"Values differ at {current_path}: {actual_val} vs {ref_val}")
+    
+    def _test_against_reference(self, test_name, problem_factory):
+        """Helper method to test a problem against its reference output."""
+        # Load reference data
+        reference_data = self._load_reference(test_name)
+        
+        # Create and run the problem
+        problem = problem_factory()
+        result = problem.run()
+        
+        # Compare with reference
+        self._compare_with_reference(result, reference_data)
+    
+    # Sample reference tests - these will test against the JSON files
+    def test_hp_h2o2_p500psi_reference(self):
+        """Test H2/O2 HP problem at 500 psi against reference."""
+        def create_problem():
+            return HPProblem(
+                pressure=500, materials=[self.h2_gas, self.o2_gas], 
+                phi=1.0, pressure_units="psi", filename="test_ref_hp_h2o2_p500psi"
+            )
+        
+        self._test_against_reference("hp_h2o2_p500psi", create_problem)
+    
+    def test_rocket_h2o2_p1000psi_reference(self):
+        """Test H2/O2 rocket problem at 1000 psi against reference."""
+        def create_problem():
+            return RocketProblem(
+                pressure=1000, materials=[self.h2_liquid, self.o2_liquid], 
+                phi=1.0, sup=10, pressure_units="psi", filename="test_ref_rocket_h2o2_p1000psi"
+            )
+        
+        self._test_against_reference("rocket_h2o2_p1000psi", create_problem)
+    
+    def test_det_ch4air_p10bar_reference(self):
+        """Test CH4/air detonation at 10 bar against reference."""
+        def create_problem():
+            return DetonationProblem(
+                pressure=10, materials=[self.ch4, self.air], 
+                phi=1.0, pressure_units="bar", filename="test_ref_det_ch4air_p10bar"
+            )
+        
+        self._test_against_reference("det_ch4air_p10bar", create_problem)
+    
+    def test_hp_ch4air_phi1_0_reference(self):
+        """Test CH4/air HP at phi=1.0 against reference."""
+        def create_problem():
+            return HPProblem(
+                pressure=1000, materials=[self.ch4, self.air], 
+                phi=1.0, filename="test_ref_hp_ch4air_phi1_0"
+            )
+        
+        self._test_against_reference("hp_ch4air_phi1.0", create_problem)
+    
+    def test_rocket_h2o2_sup5_reference(self):
+        """Test H2/O2 rocket with sup=5 against reference."""
+        def create_problem():
+            return RocketProblem(
+                pressure=2000, materials=[self.h2_gas, self.o2_gas], 
+                phi=1.0, sup=5, filename="test_ref_rocket_h2o2_sup5"
+            )
+        
+        self._test_against_reference("rocket_h2o2_sup5.0", create_problem)
+
+
 def _convert_to_json_serializable(obj):
     """Convert Output objects to nested dictionaries of floats for JSON serialization."""
     if hasattr(obj, '__dict__'):

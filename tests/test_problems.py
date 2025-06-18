@@ -284,14 +284,38 @@ class TestProblemParameterVariation(TestProblemConsistency):
         self._assert_output_consistency(result_high, result_high_2)
 
 
+def _convert_to_json_serializable(obj):
+    """Convert Output objects to nested dictionaries of floats for JSON serialization."""
+    if hasattr(obj, '__dict__'):
+        # Handle Output objects by converting to dict
+        result = {}
+        for key, value in dict(obj).items():
+            result[key] = _convert_to_json_serializable(value)
+        return result
+    elif isinstance(obj, (int, float)):
+        return float(obj)  # Ensure all numbers are floats
+    elif isinstance(obj, str):
+        return obj
+    elif obj is None:
+        return None
+    elif isinstance(obj, (list, tuple)):
+        return [_convert_to_json_serializable(item) for item in obj]
+    elif isinstance(obj, dict):
+        return {k: _convert_to_json_serializable(v) for k, v in obj.items()}
+    else:
+        # For other types, try to convert to string
+        return str(obj)
+
+
 def create_dry_run_outputs():
     """
     Utility function to generate extensive reference outputs for all test cases.
     Run this once to create expected outputs, then use those for comparison.
     This creates a comprehensive matrix of test cases covering various parameter combinations.
+    
+    Each test case is saved as a separate JSON file in the test_reference_outputs directory.
     """
     import json
-    import pickle
     from pathlib import Path
     import os
     
@@ -535,7 +559,7 @@ def create_dry_run_outputs():
     # GENERATE AND SAVE ALL REFERENCE OUTPUTS  
     # ================================================================
     
-    references = {}
+    successful_cases = []
     failed_cases = []
     
     total_cases = len(test_cases)
@@ -545,23 +569,35 @@ def create_dry_run_outputs():
         try:
             print(f"[{i:3d}/{total_cases}] Generating {name}...")
             result = problem_func()
-            # Convert to dictionary for serialization
-            references[name] = dict(result)
+            
+            # Convert to JSON-serializable format
+            json_data = _convert_to_json_serializable(result)
+            
+            # Save individual JSON file
+            json_file = ref_dir / f"{name}.json"
+            with open(json_file, "w") as f:
+                json.dump(json_data, f, indent=2)
+            
+            successful_cases.append(name)
+            
         except Exception as e:
             print(f"[{i:3d}/{total_cases}] FAILED {name}: {e}")
             failed_cases.append((name, str(e)))
-    
-    # Save references
-    with open(ref_dir / "references.pkl", "wb") as f:
-        pickle.dump(references, f)
     
     # Save a summary report
     with open(ref_dir / "generation_report.txt", "w") as f:
         f.write(f"Reference Generation Report\n")
         f.write(f"==========================\n\n")
         f.write(f"Total test cases: {total_cases}\n")
-        f.write(f"Successful: {len(references)}\n")
+        f.write(f"Successful: {len(successful_cases)}\n")
         f.write(f"Failed: {len(failed_cases)}\n\n")
+        
+        if successful_cases:
+            f.write("Successful Cases:\n")
+            f.write("-----------------\n")
+            for name in successful_cases:
+                f.write(f"{name}.json\n")
+            f.write("\n")
         
         if failed_cases:
             f.write("Failed Cases:\n")
@@ -570,7 +606,7 @@ def create_dry_run_outputs():
                 f.write(f"{name}: {error}\n")
     
     print(f"\nGeneration complete!")
-    print(f"Saved {len(references)} successful reference outputs to {ref_dir}")
+    print(f"Saved {len(successful_cases)} successful reference outputs as individual JSON files to {ref_dir}")
     if failed_cases:
         print(f"{len(failed_cases)} cases failed - see generation_report.txt for details")
 

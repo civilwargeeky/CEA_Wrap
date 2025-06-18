@@ -276,8 +276,17 @@ def create_dry_run_outputs():
             failed_cases.append((name, str(e)))
     
     # Save a summary report
-    with open(ref_dir / "generation_report.txt", "w") as f:
+    with open(ref_dir / "_generation_report.txt", "w") as f:
         f.write(f"Reference Generation Report\n")
+        try: # Try a couple of ways to get version
+            try:
+                import CEA_Wrap
+                f.write(f"CEA Wrap Version: {CEA_Wrap.__version__}\n")
+            except:
+                from importlib.metadata import version
+                f.write(f"CEA Wrap Version: {version('CEA_Wrap')}\n")
+        except:
+            f.write(f"CEA Wrap Version: Unknown\n")
         f.write(f"==========================\n\n")
         f.write(f"Total test cases: {total_cases}\n")
         f.write(f"Successful: {len(successful_cases)}\n")
@@ -299,7 +308,7 @@ def create_dry_run_outputs():
     print(f"\nGeneration complete!")
     print(f"Saved {len(successful_cases)} successful reference outputs as individual JSON files to {ref_dir}")
     if failed_cases:
-        print(f"{len(failed_cases)} cases failed - see generation_report.txt for details")
+        print(f"{len(failed_cases)} cases failed - see _generation_report.txt for details")
 
 if __name__ == "__main__":
     create_dry_run_outputs()

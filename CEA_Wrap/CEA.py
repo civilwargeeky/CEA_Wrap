@@ -567,7 +567,7 @@ class RocketProblem(Problem):
 
      # ensure case because we check for frozen by literal
     self.nozzle_ratio_name = "pip" if pip else ("sup" if sup else "sub") # Can only specify one ratio, pressure or supersonic or subsonic area ratio
-    self.nozzle_ratio_value = [pip if pip else (sup if sup else sub), ] # 1-element array
+    self.nozzle_ratio_value = [pip if pip else self._validate_ratio(sup if sup else sub), ] # 1-element array
     self.fac_type = None
     self.fac_value = None
     self.analysis_type = None  # Specify before calling
@@ -575,10 +575,13 @@ class RocketProblem(Problem):
     if fac_ma: self.set_fac_ma(fac_ma)
     self.set_analysis_type(analysis_type, nfz, custom_nfz=custom_nfz)
     
-  
-  
-  def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value[-1] = sup
-  def set_sub(self, sub): self.nozzle_ratio_name = "sub"; self.nozzle_ratio_value[-1] = sub
+  @staticmethod
+  def _validate_ratio(ratio):
+    if ratio < 1:
+      raise ValueError("Supersonic/Subsonic area ratio must always be >= 1")
+    return ratio
+  def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value[-1] = self._validate_ratio(sup)
+  def set_sub(self, sub): self.nozzle_ratio_name = "sub"; self.nozzle_ratio_value[-1] = self._validate_ratio(sub)
   def set_ae_at(self, ae_at): self.set_sup(ae_at)
   
   def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value[-1] = pip

@@ -278,9 +278,13 @@ def create_dry_run_outputs():
     # Save a summary report
     with open(ref_dir / "_generation_report.txt", "w") as f:
         f.write(f"Reference Generation Report\n")
-        try:
-            from importlib.metadata import version
-            f.write(f"CEA Wrap Version: {version('CEA_Wrap')}\n")
+        try: # Try a couple of ways to get version
+            try:
+                import CEA_Wrap
+                f.write(f"CEA Wrap Version: {CEA_Wrap.__version__}\n")
+            except:
+                from importlib.metadata import version
+                f.write(f"CEA Wrap Version: {version('CEA_Wrap')}\n")
         except:
             f.write(f"CEA Wrap Version: Unknown\n")
         f.write(f"==========================\n\n")

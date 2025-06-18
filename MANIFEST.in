@@ -1,3 +1,4 @@
+include CEA_Wrap/version.txt
 include CEA_Wrap/assets/FCEA2.exe
 include CEA_Wrap/assets/thermo.lib
 include CEA_Wrap/assets/trans.lib

@@ -495,7 +495,7 @@ class DetonationOutput(DictDataclass):
   m_m1: float
   rho_rho1: float
   dLV_dLP_t: float
-  dLV_dLP_p: float
+  dLV_dLT_p: float
   cond: float
   pran: float
   phi: float
@@ -889,8 +889,56 @@ class RocketOutput(FrozenRocketOutput):
   t_dLV_dLT_p: float
   c_dLV_dLT_p: float
 
+@dataclass(kw_only=True)
+class FiniteAreaCombustorRocketOutput(RocketOutput):
+  """
+  FiniteAreaCombustor problems have access to products at the combustor end
 
-class RocketProblem(Problem[RocketOutput|FrozenRocketOutput]):
+  :param prod_f: Products at the end of the combustor
+  :param f_dLV_dLP_f: (dLV/dLP)f at combustor end
+  :param f_dLV_dLT_p: (dLV/dLT)p at combustor end
+  :param f_visc: Burned gas viscosity at combustor end, Pascal-Seconds
+  :param f_isp: Ideal ISP at combustor end (ambient pressure = exit pressure), s
+  :param f_ivac: Vacuum ISP at combustor end, s
+  :param f_cf: Ideally expanded thrust coefficient at combustor end
+  :param f_p: Pressure at combustor end, bar
+  :param f_t: Temperature at combustor end, Kelvin
+  :param f_m: Molecular weight considering condensed phases at combustor end, kg/kmol
+  :param f_mw: Molecular weight of all products at combustor end, kg/kmol
+  :param f_condensed: True if condensed phase products exist at combustor end
+  :param f_cp: Constant-pressure specific heat capacity at combustor end, kJ/(kg*K)
+  :param f_gammas: Isentropic ratio of specific heats at combustor end
+  :param f_rho: Density at combustor end, kg/m^3
+  :param f_son: Sonic velocity at combustor end, m/s
+  :param f_h: Enthalpy at combustor end, kJ/kg
+  :param f_cond: Burned gas thermal conductivity at combustor end, W/(m K)
+  :param f_pran: Burned gas Prandtl number at combustor end
+  :param f_ae: Ratio of area at combustor end to area at throat
+  :param f_pip: Ratio of pressure in chamber to pressure at combustor end
+  """
+  prod_f: Output
+  f_dLV_dLP_f: float
+  f_dLV_dLT_p: float
+  f_visc: float
+  f_isp: float
+  f_ivac: float
+  f_cf: float
+  f_p: float
+  f_t: float
+  f_m: float
+  f_mw: float
+  f_condensed: bool
+  f_cp: float
+  f_gammas: float
+  f_rho: float
+  f_son: float
+  f_h: float
+  f_cond: float
+  f_pran: float
+  f_ae: float
+  f_pip: float
+
+class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorRocketOutput]):
   problem_type = "rocket"
   plt_keys = "p t isp ivac m mw cp gam o/f cf rho son mach phi h cond pran ae pip"
     
@@ -918,9 +966,9 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput]):
     self.fac_type = None
     self.fac_value = None
     self.analysis_type: str  # Specify before calling
+    self.set_analysis_type(analysis_type, nfz, custom_nfz=custom_nfz)
     if fac_ac: self.set_fac_ac(fac_ac)
     if fac_ma: self.set_fac_ma(fac_ma)
-    self.set_analysis_type(analysis_type, nfz, custom_nfz=custom_nfz)
     
   
   
@@ -984,7 +1032,7 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput]):
       to_ret.append("   fac {} = {:0.5f}".format(self.fac_type, self.fac_value))
     return "\n".join(to_ret) + "\n"
   
-  def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput|FrozenRocketOutput:
+  def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput|FrozenRocketOutput|FiniteAreaCombustorRocketOutput:
     out = Output()
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
@@ -1229,5 +1277,7 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput]):
 
     if "frozen" in self.analysis_type:
       return FrozenRocketOutput(**out)
+    elif has_fac:
+      return FiniteAreaCombustorRocketOutput(**out)
     else:
       return RocketOutput(**out)

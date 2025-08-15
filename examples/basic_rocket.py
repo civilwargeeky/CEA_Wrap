@@ -5,7 +5,7 @@ from CEA_Wrap import Fuel, Oxidizer, RocketProblem
 ## Example 1: Simple 1 fuel 1 oxidizer liquid rocket
 #############################################################################
 
-# Cyrogenic fuels
+# Cryogenic fuels
 h2 = Fuel("H2(L)", temp=20) # Liquid H2, Temp in Kelvin
 lox = Oxidizer("O2(L)", temp=90)
 # Rocket at 2000psi and supersonic area ratio of 5
@@ -49,7 +49,7 @@ print("Wow, that didn't change very much...")
 #############################################################################
 
 # Let's make a solid rocket with multiple fuels and oxidizers
-# It's composition will be 10% Aluminum, 50% AP, 20% AN, and 20% HTPB
+# Its composition will be 10% Aluminum, 50% AP, 20% AN, and 20% HTPB
 print("\n\nDoing Solid Rocket")
 
 ### METHOD 1: Calculate the o/f yourself

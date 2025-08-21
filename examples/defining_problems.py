@@ -132,7 +132,7 @@ problem = RocketProblem(pressure=1500, sup=15, materials=[aluminum, htpb, ap])
 problem.set_absolute_o_f() # sets o/f to (74)/(12+14)
 data4 = problem.run()
 
-## Ratios Example 4: Misceallaneous other methods
+## Ratios Example 4: miscellaneous other methods
 # Specify problem by percent fuel (by weight)
 problem = HPProblem(materials=[methane, air], p_f=20)
 problem.set_p_f(30)
@@ -140,5 +140,5 @@ problem.set_p_f(30)
 problem = HPProblem(materials=[methane, air], f_o=1/20) # fuel-rich
 problem.set_f_o(1/10) # fuel-lean
 # Specify problem by "Chemical equivalence ratios in terms of valences" (I don't actually know what this is)
-problem = HPProblem(materials=[methane, air], r_eq=1) # stoichiometric by valences, I guesss
+problem = HPProblem(materials=[methane, air], r_eq=1) # stoichiometric by valences, I guess
 problem.set_r_eq(1.5) # Set it to something else

@@ -25,7 +25,7 @@ OPTIONS_PRES_UNITS = get_args(PresUnitType)
 OPTIONS_ENTHALPY_UNITS = get_args(EnthalpyUnitType)
 
 # Instantiate default objects used for all problems (using files defined within .utils.py)
-# Because CEA locks the thermo.lib and trans.lib files while running, only one instance of the executable can access those files at a time
+# Because the CEA executable locks the thermo.lib and trans.lib files while running, only one instance of the executable can access those files at a time
 #   to allow for multiprocessing, each instance of CEA_Class will copy those files to a temporary directory
 #   To allow for threading, we could either a) use a global mutex on that subprocess call or b) create a temp directory per-thread
 #   To increase performance, we will create a temp-directory per-thread by default
@@ -770,7 +770,7 @@ class FrozenRocketOutput(DictDataclass):
   :param mw: Molecular weight of all products, kg/kmol
   :param t_mw: Throat molecular weight
   :param c_mw: Chamber molecular weight
-  :param m: Molecular weight considering condensed phases, kg/kmol
+  :param m: molecular weight calculated as the weight of all products divided by the number of gaseous moles (same as mw if no condensed phases as mw=m), kg/kmol
   :param t_m: Throat molecular weight
   :param c_m: Chamber molecular weight
   :param condensed: True if condensed phase products exist

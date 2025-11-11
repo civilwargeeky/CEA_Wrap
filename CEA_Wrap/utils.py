@@ -50,12 +50,13 @@ def get_asset(file: str) -> str:
     return get_local_data_file(file)
 
 """
-# The first time we install from source, we need to move our files from the ".assets" directory to our data directory
-# This checks if the assets directory still exists, and if so, will try to copy files to it.
+The first time we install from source, we need to copy our files from the "./assets" directory to a data directory that 
+  persists for the user. This allows the user to add new elements to their thermo.lib and trans.lib without fear of those
+  being overwritten when you update CEA_Wrap.
+
 Expected process:
-1st run: There is no AppData folder, all assets are in site-packages/CEA_Wrap/assets folder
-          We create AppData/Local/CEA_Wrap and move all our assets there.
-Subsequent runs: We check that the site-packages/CEA_Wrap/assets folder exists and it doesn't so we don't change anything
+1st run: There is no folder in the user's appdata, all assets are in site-packages/CEA_Wrap/assets folder
+          We create AppData/Local/CEA_Wrap and copy all our assets there.
 Subsequent installs (with --update): The assets folder exists, so we move all assets without replacement,
         so user thermo_spg.inp files are saved, but any missing assets are added
 """

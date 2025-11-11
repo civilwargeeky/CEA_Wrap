@@ -1,3 +1,4 @@
+import hashlib
 import importlib.resources
 import logging
 import os
@@ -5,6 +6,7 @@ import platform
 import shutil
 from collections.abc import MutableMapping
 from dataclasses import dataclass, fields
+from pathlib import Path
 from typing import Any, Iterator
 from zlib import crc32
 
@@ -79,6 +81,18 @@ if try_move_to_local: # If using pre-installed assets, we don't want to copy any
         if not os.path.exists(dst_path): # If we don't already have a copy of this file
           log.debug("Copying file")
           shutil.copy2(src_path, dst_path) # Copy it
+        elif Path(dst_path).name == "trans.lib": # Special case for updating the trans lib
+          log.debug("Examining trans.lib for hash")
+          # Check if the existing destination file is the 12-byte "blank" trans.lib
+          #   We want to check for this one exactly, in case the user has created their own trans.lib, we don't want to overwrite it
+          # This is the hash of the "blank" file you get from no trans.inp
+          BLANK_FILE_HASH = bytes.fromhex("E731531F76E6293EA5611B2F3B971A67AB7B1420")
+          with open(dst_path, "rb") as f:
+            if hashlib.sha1(f.read(), usedforsecurity=False).digest() == BLANK_FILE_HASH:
+              log.debug("Detected legacy trans.lib. Overwriting with new version")
+              shutil.copy2(src_path, dst_path)
+            else:
+              log.debug("trans.lib does not match legacy file hash. Not copying.")
         else:
           log.debug("File already existed in destination")
   except ModuleNotFoundError: # importlib raises this if a directory doesn't exist

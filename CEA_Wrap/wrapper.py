@@ -131,9 +131,9 @@ class Material:
     return self._wt
   
   @wt.setter
-  def wt(self, wt_percent:float):
+  def wt(self, value:float):
     self._mols = None # Can only have one
-    self._wt = wt_percent
+    self._wt = value
 
   @property
   def mols(self) -> float:
@@ -142,19 +142,35 @@ class Material:
     return self._mols
   
   @mols.setter
-  def mols(self, mols:float):
+  def mols(self, value:float):
     self._wt = None # Can only have one
-    self._mols = mols
+    self._mols = value
 
   @property
   def temp(self):
     return self._temp
 
   @temp.setter
-  def temp(self, temp:float):
-    if self.check_against_thermo_inp and not ThermoInterface[self.name].defined_at(temp):
-      raise ValueError(f"specified material '{self.name}' does not exist at temperature {temp:0.2f}")
-    self._temp=temp
+  def temp(self, value:float):
+    if self.check_against_thermo_inp and not ThermoInterface[self.name].defined_at(value):
+      raise ValueError(f"specified material '{self.name}' does not exist at temperature {value:0.2f}")
+    self._temp=value
+
+  temperature = temp # Alias for "temp"
+
+  ### set functions to explicitly set values for the Material
+
+  def set_wt(self, value: float):
+    self.wt = value # Call new setter
+
+  def set_mols(self, value:float):
+    self.mols = value # Call new setter
+  
+  def set_temp(self, value:float):
+    self.temp = value # Call new setter
+  
+  def set_temperature(self, value: float):
+    self.temp = value # Call underlying setter
   
   @property
   @deprecated_setter
@@ -193,22 +209,15 @@ class Material:
   def __str__(self):
     return self.name
 
+  ### These functions for setting values are deprecated and will be removed in a future release
   @property
   @deprecated_setter
   def wt_percent(self):
     return self.wt
 
   @deprecated_setter
-  def set_wt_percent(self, wt_percent:float):
-    self.wt = wt_percent # Call new setter
-  
-  @deprecated_setter
-  def set_mols(self, mols:float):
-    self.mols = mols # Call new setter
-  
-  @deprecated_setter
-  def set_temp(self, temp:float):
-    self.temp = temp # Call new setter
+  def set_wt_percent(self, value:float):
+    self.wt = value # Call new setter
       
 class Fuel(Material):
   output_type = "fuel"
@@ -222,6 +231,21 @@ class Oxidizer(Material):
 
 O = Oxidizer # Alias
 
+def make_fuel_property(name: str) -> property:
+  """ Helper for Problem objects to make properties for all the different fuel ratio types """
+  def getter(self: "Problem"): 
+    f"""
+    Get/set the "{name}" fuel property for this Problem
+    If the current fuel property is not "{name}" and you try to get the value, a ValueError will be raised
+    """
+    if self.ratio_name == name:
+      return self.ratio_value
+    raise ValueError(f'Fuel ratio was "{self.ratio_name}", not {name}')
+  
+  def setter(self: "Problem", value: float):
+    return self._set_fuel_ratio(**{name: value})
+  
+  return property(getter, setter)
 
 OutputType = TypeVar("OutputType")
 
@@ -308,14 +332,14 @@ class Problem(Generic[OutputType]):
     self.massf = massf
     self.materials: list[Material] = materials or []
     self.pressure = pressure
-    self.pressure_units = None
+    self._pressure_units = None
     self.set_pressure_units(pressure_units)
     self.filename:str # Specify before setting
     self.set_filename(filename)
     
     # Check against thermo file for these to prevent errors
-    self.inserts = self._format_input_list(inserts)
-    self.omits   = self._format_input_list(omits)
+    self._inserts = self._format_input_list(inserts)
+    self._omits   = self._format_input_list(omits)
     
     self.ratio_name = None
     self.ratio_value = None
@@ -329,29 +353,54 @@ class Problem(Generic[OutputType]):
     diff = set(kwargs).difference(set(self._ratio_options)) # Find if kwargs contains any entries not in self._ratio_options
     if diff: # If there are any kwargs keys that aren't in _ratio_options keys, we should error
       raise TypeError(self.__class__.__name__+"() got an unexpected keyword argument(s): " + ",".join(diff))
-    
+  
+  # This sets up "properties" for all the fuel properties
+  # This allows people to do `my_problem.f_o = 5` or `problem.phi = 1`
+  p_f = make_fuel_property("p_f")
+  f_o = make_fuel_property("f_o")
+  o_f = make_fuel_property("o_f")
+  phi = make_fuel_property("phi")
+  r_eq = make_fuel_property("r_eq")
+
+  # Setter functions for all fuel ratios
   def set_p_f(self, p_f: float): self._set_fuel_ratio(p_f=p_f)
   def set_f_o(self, f_o: float): self._set_fuel_ratio(f_o=f_o)
   def set_o_f(self, o_f: float): self._set_fuel_ratio(o_f=o_f)
   def set_phi(self, phi: float): self._set_fuel_ratio(phi=phi)
   def set_r_eq(self, r_eq: float): self._set_fuel_ratio(r_eq=r_eq)
+
+  # Set up properties for inserts and omits
+  @property
+  def inserts(self): return self._inserts
+  @inserts.setter
+  def _insert_setter(self, value: str | list[str] | list[Material] | None): return self._format_input_list(value)
+
+  @property
+  def omits(self): return self._omits
+  @omits.setter
+  def _omit_setter(self, value: str | list[str] | list[Material] | None): return self._format_input_list(value)
   
   def set_pressure(self, pressure: float): self.pressure = pressure
   def set_materials(self, materials: list[Material]): self.materials = materials
   def set_massf(self, massf: bool): self.massf = massf
-  def set_inserts(self, inserts: str | list[str] | list[Material] | None): self.inserts = self._format_input_list(inserts)
-  def set_omits(self, omits: str | list[str] | list[Material] | None): self.omits = self._format_input_list(omits)
+  def set_inserts(self, inserts: str | list[str] | list[Material] | None): self._inserts = self._format_input_list(inserts)
+  def set_omits(self, omits: str | list[str] | list[Material] | None): self._omits = self._format_input_list(omits)
 
   def set_filename(self, filename: str|None):
     if filename is not None:
       import warnings
       warnings.warn("setting filename is no longer needed for CEA problems and this key is ignored", DeprecationWarning)
   
+  @property
+  def pressure_units(self): return self._pressure_units
+  @pressure_units.setter
+  def _pressure_units_setter(self, value: str): return self.set_pressure_units(value)
+
   def set_pressure_units(self, pressure_units: str):
     pressure_units = pressure_units.lower() # We only have a few options for pressure units
     if pressure_units not in OPTIONS_PRES_UNITS:
       raise ValueError("pressure unit must be in " + ", ".join(OPTIONS_PRES_UNITS))
-    self.pressure_units = pressure_units
+    self._pressure_units = pressure_units
   
   def set_absolute_o_f(self) -> float:
     # Set an o_f ratio assuming that the wt of each of our materials is an absolute percentage
@@ -711,7 +760,7 @@ class TPProblem(HPProblem):
     super().__init__(*args, **kwargs)
       
     self.temperature = temperature
-    self.temperature_units = None
+    self._temperature_units = None
     self.set_temperature_units(temperature_units)
   
   def set_temperature(self, temperature: float): self.temperature = temperature
@@ -720,13 +769,19 @@ class TPProblem(HPProblem):
     temperature_units = temperature_units.lower()  # We only have a few options for pressure units
     if temperature_units not in OPTIONS_TEMP_UNITS:
       raise ValueError("pressure unit must be in " + ", ".join(OPTIONS_TEMP_UNITS))
-    self.temperature_units = temperature_units
+    self._temperature_units = temperature_units
+  
+  @property
+  def temperature_units(self): return self._temperature_units
+  @temperature_units.setter
+  def _temperature_units_setter(self, value: str): return self.set_temperature_units(value)
+
 
   def get_prefix_string(self):
     to_ret = []
     to_ret.append("{}".format(self.problem_type))
     to_ret.append("   p({}) = {:0.5f}".format(self.pressure_units, self.pressure))
-    to_ret.append("   t({}) = {:0.5f}".format(self.temperature_units, self.temperature))
+    to_ret.append("   t({}) = {:0.5f}".format(self._temperature_units, self.temperature))
     to_ret.append("   {} = {:0.5f}".format(self.ratio_name, self.ratio_value))
     return "\n".join(to_ret) + "\n"
   
@@ -734,6 +789,22 @@ class TPProblem(HPProblem):
     # Here we convert all the materials to TPMaterials before calling the main function, so that each one doesn't report temperature
     new_material_list = [TPMaterial(material) for material in material_list]
     return super().make_input_file(new_material_list)
+
+def make_area_property(name: str) -> property:
+  """ Helper for RocketProblem objects to make properties for all the different area ratios """
+  def getter(self: "RocketProblem"): 
+    f"""
+    Get/set the "{name}" nozzle ratio property for this RocketProblem
+    If the current nozzle ratio property is not "{name}" and you try to get the value, a ValueError will be raised
+    """
+    if self.nozzle_ratio_name == name:
+      return self.ratio_value
+    raise ValueError(f'Currently set area ratio name was "{self.nozzle_ratio_name}", not {name}')
+  
+  def setter(self: "RocketProblem", value: float):
+    return self._set_area_ratio(name, value)
+  
+  return property(getter, setter)
 
 @dataclass(kw_only=True)
 class FrozenRocketOutput(DictDataclass):
@@ -977,11 +1048,23 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
     if ratio < 1:
       raise ValueError("Supersonic/Subsonic area ratio must always be >= 1")
     return ratio
-  def set_sup(self, sup): self.nozzle_ratio_name = "sup"; self.nozzle_ratio_value[-1] = self._validate_ratio(sup)
-  def set_sub(self, sub): self.nozzle_ratio_name = "sub"; self.nozzle_ratio_value[-1] = self._validate_ratio(sub)
+  def _set_area_ratio(self, ratio_name: str, value: float):
+    self.nozzle_ratio_name = ratio_name
+    if ratio_name in {"sup", "sub"}: value = self._validate_ratio(value)
+    elif ratio_name == "pip": pass
+    else: raise ValueError(f"Unknown ratio name '{ratio_name}'")
+    self.nozzle_ratio_value[-1] = value
+
+  def set_sup(self, sup: float): self._set_area_ratio("sup", sup)
   def set_ae_at(self, ae_at): self.set_sup(ae_at)
-  
-  def set_pip(self, pip): self.nozzle_ratio_name = "pip"; self.nozzle_ratio_value[-1] = pip
+  def set_sub(self, sub: float): self._set_area_ratio("sub", sub)
+  def set_pip(self, pip: float): self._set_area_ratio("pip", pip)
+
+  # Make properties for each type of area ratio so you can do `problem.sup = 5` or similar
+  sup = make_area_property("sup")
+  ae_at = make_area_property("sup") # Also sup
+  sub = make_area_property("sub")
+  pip = make_area_property("pip")
   
   def set_analysis_type(self, analysis_type: str, nfz=None, custom_nfz=None):
     analysis_type = analysis_type.lower()

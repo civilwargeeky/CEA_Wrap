@@ -334,7 +334,8 @@ class TestProblemAgainstReferences(TestProblemConsistency):
         #         msg += f"missing in reference: {missing_in_ref}"
         #     self.fail(msg)
         
-        if (missing_in_actual := ref_keys - actual_keys):
+        missing_in_actual = ref_keys - actual_keys
+        if missing_in_actual:
             msg = f"Key mismatch at {path}: "
             msg += f"missing in actual: {missing_in_actual} "
             self.fail(msg)

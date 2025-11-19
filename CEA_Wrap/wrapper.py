@@ -345,7 +345,8 @@ class Problem(Generic[OutputType]):
     self.ratio_value = None
     self._set_fuel_ratio(**kwargs)
     
-    if (curr_thread := threading.get_ident()) in CEA_thread_dict: # Get the CEA object local to our thread
+    curr_thread = threading.get_ident()
+    if curr_thread in CEA_thread_dict: # Get the CEA object local to our thread
       self.CEA = CEA_thread_dict[curr_thread]
     else: # If no thread-local object, instantiate a new one
       self.CEA = CEA_thread_dict[curr_thread] = CEA_Class()

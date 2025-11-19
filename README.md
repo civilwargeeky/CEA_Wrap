@@ -549,6 +549,7 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 ### Rocket:
 * **NOTE : Properties are by default at exit. Chamber parameters are prefixed "c_" and throat properties "t_"**
 * **NOTE : Properties not defined for frozen flow are marked with an asterisk (*)**
+* **NOTE : Properties not defined _only_ for frozen flow are marked with a dagger (†)**
 * **NOTE : All properties defined at the throat are also defined as "f_property" when Finite Area Combustor is enabled (defined fac_ac or fac_ma)**
 * `prod_c` - dictionary of chamber products, in mole or mass fractions (as specified by the 'massf' parameter in your problem definition)
 * `*prod_t` - dictionary of throat products, in mole or mass fractions (as specified by the 'massf' parameter in your problem definition)
@@ -574,6 +575,9 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `cond` - burned gas thermal conductivity, W/(m K)
   * `t_cond` - throat
   * `c_cond` - chamber
+* `†cond_eq` - equilibrium calculated burned gas thermal conductivity, W/(m K) (in frozen flow, most properties represent frozen conditions)
+  * `†t_cond_eq` - throat
+  * `†c_cond_eq` - chamber
 * `pran` - burned gas Prandtl number. Ratio of mass diffusivity to thermal diffusivity
   * `t_pran` - throat
   * `c_pran` - chamber

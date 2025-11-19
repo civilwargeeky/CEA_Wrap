@@ -473,7 +473,6 @@ class Problem(Generic[OutputType]):
       
     contents += "output {}trans\n".format("massf " if self.massf else "") # Output is mass fraction is "massf"
     contents += self.get_plt_string() # output plotting string, if any
-    contents += "   plot cond\n"
     contents += "end\n"
 
     return contents

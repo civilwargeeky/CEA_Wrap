@@ -4,6 +4,7 @@
 *.rtf
 *.pyc
 test_reference_outputs/
+test_reference_outputs_*/
 !thermo_spg.inp
 !thermo_spg.out
 CEA_Wrap.egg-info/

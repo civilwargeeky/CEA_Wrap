@@ -473,12 +473,13 @@ class Problem(Generic[OutputType]):
       
     contents += "output {}trans\n".format("massf " if self.massf else "") # Output is mass fraction is "massf"
     contents += self.get_plt_string() # output plotting string, if any
+    contents += "   plot cond\n"
     contents += "end\n"
 
     return contents
   
   def get_plt_string(self) -> str:
-    return f"   plot {self._get_plt_keys():s}\n" # specify string formatting so None errors
+    return f"   plot {self.plt_keys:s}\n" # specify string formatting so None errors
   
   def _error_check_thermo_out_line(self, error_line:str):
     # Either raises an error or does nothing
@@ -807,7 +808,7 @@ def make_area_property(name: str) -> property:
   return property(getter, setter)
 
 @dataclass(kw_only=True)
-class FrozenRocketOutput(DictDataclass):
+class BaseRocketOutput(DictDataclass):
   """
   Data representation for rocket engine properties.
 
@@ -938,7 +939,32 @@ class FrozenRocketOutput(DictDataclass):
   t_pip: float
 
 @dataclass(kw_only=True)
-class RocketOutput(FrozenRocketOutput):
+class FrozenRocketOutput(BaseRocketOutput):
+  """
+  Frozen flows have a few extra elements because the equilibrium values are *also* calculated and they may be important to someone
+
+  :param cond_eq: Burned gas thermal conductivity, W/(m K) in equilibrium flow at this station
+  :param t_cond_eq: Throat equilibrium conductivity
+  :param c_cond_eq: Chamber equilibrium conductivity
+  """
+  cond_eq: float
+  t_cond_eq: float
+  c_cond_eq: float
+
+  '''
+  As of the time of writing, there is a limit of 19 plt output keys, and so we can't add equilibrium prandtl number to the plt.
+  I am keeping these docstrings for posterity
+  
+  :param pran_eq: Burned gas Prandtl number in equilibrium flow at this station
+  :param t_pran_eq: Throat equilibrium Prandtl number
+  :param c_pran_eq: Chamber equilibrium Prandtl number
+  '''
+  # pran_eq: float
+  # t_pran_eq: float
+  # c_pran_eq: float
+
+@dataclass(kw_only=True)
+class RocketOutput(BaseRocketOutput):
   """
   Equilibrium problems have access to several other attributes, not present in Frozen flow
 
@@ -1090,8 +1116,9 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
         analysis_type = analysis_type + " nfz={}".format(nfz)
       # Modify plot keys to use frozen values
       to_put = type(self)._get_plt_keys() # Get copy from class instance
-      for orig in ("isp", "ivac", "cf", "mach"):
+      for orig in ("isp", "ivac", "cf", "mach", "cond", "pran"):
         to_put = to_put.replace(" "+orig, " "+orig+"fz", 1) # Add 'fz' to each of these properties
+      to_put += " cond" # Add in the original equilibrium values for conductivity as well, it can be important. I would like to also add "pran" but there is a limit on columns in the .plt file
       self.plt_keys = to_put
     else:
       self.plt_keys = type(self).plt_keys # Get new copy from class instance
@@ -1117,6 +1144,8 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
   
   def process_output(self, out_file_content: str, plt_file_content: str) -> RocketOutput|FrozenRocketOutput|FiniteAreaCombustorRocketOutput:
     out = Output()
+
+    is_frozen = "frozen" in self.analysis_type
     
     # We'll also open this file to get mass/mole fractions of all constituents and other properties
     # Ordered (in the file) list of terms that we're searching for
@@ -1265,6 +1294,8 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
             out.c_h = float(new_line[14])
             out.c_cond = float(new_line[15])/10 # Convert mW/cm K to W/m K
             out.c_pran = float(new_line[16])
+            if is_frozen: # Added on to end
+              out.c_cond_eq = float(new_line[19])
           elif counter == fac_count: # finite area combustor properties
             # Throat/Nozzle Values
             out.f_isp = float(new_line[2])/9.81
@@ -1315,6 +1346,8 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
             out.t_pran = float(new_line[16])
             out.t_ae = float(new_line[17])
             out.t_pip = float(new_line[18])
+            if is_frozen: # Added on to end
+              out.t_cond_eq = float(new_line[19])
           elif counter == exit_count: # nozzle exit properties
             # Exit-only values
             out.mach = float(new_line[12])
@@ -1343,8 +1376,10 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
             out.pran = float(new_line[16])
             out.ae = float(new_line[17])
             out.pip = float(new_line[18])
-            
-    if "frozen" in self.analysis_type:
+            if is_frozen: # Added on to end
+              out.cond_eq = float(new_line[19])
+
+    if is_frozen:
       # We don't get mole fractions in the other positions for frozen
       del out["prod_t"]
       del out["prod_e"]
@@ -1358,7 +1393,7 @@ class RocketProblem(Problem[RocketOutput|FrozenRocketOutput|FiniteAreaCombustorR
 
     out.massf = self.massf
 
-    if "frozen" in self.analysis_type:
+    if is_frozen:
       return FrozenRocketOutput(**out)
     elif has_fac:
       return FiniteAreaCombustorRocketOutput(**out)

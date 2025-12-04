@@ -2,6 +2,29 @@
 
 A Python-Based wrapper for the NASA CEA Thermochemical Code
 
+# Table of Contents
+- [Installation](#installation-instructions)
+- [Important: Upgrade to >=V2.1](#important-changes-to-transport-properties-in-version-21)
+- [New in Version 2](#new-in-version-2)
+- [Examples](#examples)
+- [Documentation](#documentation)
+  - [Materials](#defining-materials)
+  - [Basic Problem](#problem-kwargs---problem)
+  - [HP Problem](#hp-specified-enthalpy-and-pressure-problem-constructor-additional-parameters)
+    - [Outputs](#hp-specified-enthalpy-and-pressure-and-tp-specified-temperature-and-pressure)
+  - [TP Problem](#tp-specified-temperature-and-pressure-problem-constructor-additional-parameters)
+    - [Outputs](#hp-specified-enthalpy-and-pressure-and-tp-specified-temperature-and-pressure)
+  - [Detonation Problem](#detonation-problem-constructor-additional-parameters)
+    - [Outputs](#detonation)
+  - [Rocket Problem](#rocket-problem-constructor-additional-parameters)
+    - [Outputs](#rocket)
+  - [Problem Outputs](#available-output-dictionary-keys)
+  - [Thermodynamics Library Interface](#using-thermointerface)
+  - [DataCollector](#datacollector)
+- [Environment Variables](#environment-variables)
+- [Portable Installation Instructions](#making-a-portable-installation)
+- [Adding to the thermo lib](#adding-materialsrecompiling-the-thermo-lib-advanced-usage)
+
 # Installation Instructions
 
 We are now on [PyPi!](https://pypi.org/project/CEA-Wrap/)
@@ -19,7 +42,7 @@ You can see a discussion from a successful user here: [Issue #1](https://github.
 
 As of version 2.0, making a portable installation is even easier! This will initialize CEA to set itself up without accessing user's program files or app data folders for storing assets. Simply set the `CEA_USE_SITE_PACKAGES` environment variable before loading the code.
 
-Details can be found in "Making A Portable Installation" at the bottom of the README
+Details can be found in "[Making A Portable Installation](#making-a-portable-installation)" at the bottom of the README
 
 # Important: Changes to transport properties in Version 2.1
 
@@ -121,7 +144,7 @@ A ChemicalRepresentation represents a custom material added in the .inp file, as
 
 - **`is_internal_energy`** (`bool`, _optional_, default=`False`): If True, sets an internal energy (`u`), rather than enthalpy (`h`).
 
-### `Problem(*, **kwargs) -> Problem`
+## `Problem(*, **kwargs) -> Problem`
 
 Creates a new Problem object with specified parameters.
 
@@ -469,7 +492,7 @@ Usage: `DetonationProblem(**kwargs)`. This problem type has no additional parame
 
 - `DetonationProblem`: An instance of the DetonationProblem class initialized with the provided parameters.
 
-### Rocket Problem Constructor Additional Parameters:
+## Rocket Problem Constructor Additional Parameters:
 
 For `RocketProblem(*, **kwargs)`. The `RocketProblem` has a variety of options related to how the chamber and nozzle of the rocket motor are treated.
 
@@ -546,6 +569,7 @@ In addition, all product dictionaries are also "Output" objects so to get H2O fr
 * `cond` - burned gas thermal conductivity, W/(m K)
 * `pran` - burned gas Prandtl number. Ratio of mass diffusivity to thermal diffusivity
 * `phi` - weight-based equivalence ratio of oxidizer/fuel in original problem
+
 ### Rocket:
 * **NOTE : Properties are by default at exit. Chamber parameters are prefixed "c_" and throat properties "t_"**
 * **NOTE : Properties not defined for frozen flow are marked with an asterisk (*)**
@@ -708,14 +732,14 @@ Note: Most of these environment variables are only examined once on startup, so 
 - `CEA_THERMO_LIB`: If set, overrides the path to the thermo.lib file used by the CEA executable
 - `CEA_TRANS_LIB`: If set, overrides the path to the trans.lib file used by the CEA executable
 - `CEA_THERMO_INP`: If set, overrides the path to the thermo_spg.inp file used by the ThermoInterface in CEA_Wrap
-- `CEA_COPY_THERMO_TO_TEMP`: If set to some Truthy value, when a CEA object is instantiated (such as when you import CEA_Wrap), the thermo.lib and trans.lib from assets are copied to a temporary directory (by default). This enables multiprocessing because CEA holds a lock on the thermo.lib and trans.lib files while it is running, and will crash the program if two instances of CEA attempt to access the thermo.lib files at the same time. DEFAULT: True
-- `CEA_USE_LEGACY`: Uses a modified CEA interface that uses legacy logic for interacting with the original FCEA2 executable
+- `CEA_COPY_THERMO_TO_TEMP`: If set to some Falsy value, CEA will use a global thermo.lib and trans.lib instead of copying it to a temp directory for each thread/process (the default). Typically, when a CEA object is instantiated (such as when you import CEA_Wrap), the thermo.lib and trans.lib from assets are copied to a temporary directory. This enables multiprocessing because CEA holds a lock on the thermo.lib and trans.lib files while it is running, and will crash the program if two instances of CEA attempt to access the thermo.lib files at the same time.
+- `CEA_USE_LEGACY`: Uses a modified CEA interface that uses legacy logic for interacting with the original FCEA2 executable instead of the potentially-faster DanCEA2
 
-### Making A Portable Installation
+## Making A Portable Installation
 
 To download the package to be used as a portable installation, simply clone/download this repository.
 
-#### Installing/Using the portable installation
+### Installing/Using the portable installation
 
 In whatever environment you are using, you can navigate to the folder containing `setup.py`, then call `pip install -e .`
 
@@ -737,25 +761,25 @@ My_Folder
 │       │   ...
 ```
 
-#### Setting the environment variable
+### Setting the environment variable
 
 Before you run your code, you must set the environment variable `CEA_USE_SITE_PACKAGES` to '1' or 'True' or similar. You must do this **before** you import CEA_Wrap. You can set the environment variable in a variety of ways. If your code is in "my_code.py", ...
 
-##### Set environment variables in Windows:
+#### Set environment variables in Windows:
 
 ```shell
 C:\My_Folder> set CEA_USE_SITE_PACKAGES=1
 C:\My_Folder> python my_code.py
 ```
 
-##### Set environment variables in Linux:
+#### Set environment variables in Linux:
 
 ```bash
 ~$ export CEA_USE_SITE_PACKAGES=1
 ~$ python3 my_code.py
 ```
 
-##### Set environment variable from within code
+#### Set environment variable from within code
 
 `my_code.py`
 
@@ -766,7 +790,7 @@ from CEA_Wrap import Oxidizer, Fuel, RocketProblem
 ...
 ```
 
-### Adding materials/recompiling the thermo lib (advanced usage)
+## Adding materials/recompiling the thermo lib (advanced usage)
   
   You can add new molecules by modifying your thermo_spg.inp file and then recompiling the thermo lib.
 

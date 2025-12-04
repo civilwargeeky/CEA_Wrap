@@ -41,7 +41,7 @@ class ChemicalRepresentation:
 
   :param chemical_representation: chemical composition in space-separated pairs of (element, n_atoms), such as "LI 1 B 1 H 4" for LiBH4.
   :param hf: Enthalpy of formation, in `hf_unit`/mol.
-  :param hf_unit: Unit for enthalpy of formation. defaults to "kj"
+  :param hf_unit: Unit for enthalpy of formation, per mol. defaults to "kj"
   :param is_internal_energy: If True, sets an internal energy (`u`), rather than enthalpy (`h`). defaults to False
   """
   chemical_composition: str
@@ -211,9 +211,16 @@ class Material:
 
   ### These functions for setting values are deprecated and will be removed in a future release
   @property
-  @deprecated_setter
   def wt_percent(self):
+    import warnings
+    warnings.warn(f"Using `wt_percent` is deprecated. Please use the `wt` instead", DeprecationWarning)
     return self.wt
+  
+  @wt_percent.setter
+  def wt_percent(self, value):
+    import warnings
+    warnings.warn(f"Using `wt_percent` is deprecated. Please use the `wt` instead", DeprecationWarning)
+    self.wt = value
 
   @deprecated_setter
   def set_wt_percent(self, value:float):

@@ -3,7 +3,7 @@ import os
 import re
 import threading
 from dataclasses import dataclass, field
-from typing import Callable, Generic, Never, Sequence, TypeVar, get_args, Literal
+from typing import Callable, Generic, Sequence, TypeVar, get_args, Literal
 
 from .utils_low import getenv_t_f
 from .utils import DictDataclass, Output
@@ -74,7 +74,7 @@ class Material:
   check_against_thermo_inp = True
   
   def __init__(self, name, temp:float=298.15, wt:float|None=None, mols:float|None=None, chemical_representation:ChemicalRepresentation|None=None,
-               wt_percent:Never=None):
+               wt_percent=None):
     """
     A material to put in the problem's .inp file. Can be specified inline or come from the thermo.lib
     If neither wt nor mols is specified, wt is 100
